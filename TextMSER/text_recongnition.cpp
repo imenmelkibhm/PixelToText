@@ -32,7 +32,7 @@ bool   sort_by_lenght(const string &a, const string &b);
 //Draw ER's in an image via floodFill
 void   er_draw(vector<Mat> &channels, vector<vector<ERStat> > &regions, vector<Vec2i> group, Mat& segmentation);
 
-extern "C"  int  text_recognition2(unsigned char* img, int rows, int cols, int stime, int Debug)
+extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug)
 {
 
  /*Text Detection*/
@@ -50,17 +50,39 @@ extern "C"  int  text_recognition2(unsigned char* img, int rows, int cols, int s
 
     // Extract channels to be processed individually
     Mat image(rows, cols, CV_8UC3, (void *) img);
+
+    char file_name[100];
+    sprintf(file_name, "Debug_images/image_orig%d.jpg", stime);
+    imwrite(file_name, image);
+
+
     vector<Mat> channels;
+/*    computeNMChannels(image, channels);
+    int cn = (int)channels.size();
+    // Append negative channels to detect ER- (bright regions over dark background)
+    for (int c = 0; c < cn-1; c++)
+        channels.push_back(255-channels[c]);*/
+
+  /*  if(Debug)
+    {
+        for (int c = 0; c < cn-1; c++)
+        {
+            sprintf(file_name, "Debug_images/chanel%d_%d.jpg", c, stime);
+            imwrite(file_name, channels[c]);
+        }
+
+    }*/
+
     Mat grey;
     cvtColor(image,grey,COLOR_RGB2GRAY);
-
     // Notice here we are only using grey channel, see textdetection.cpp for example with more channels
     channels.push_back(grey);
     channels.push_back(255-grey);
 
+
     double t_d = (double)getTickCount();
-    // Create ERFilter objects with the 1st and 2nd stage default classifiers
-    Ptr<ERFilter> er_filter1 = createERFilterNM1(loadClassifierNM1("trained_classifierNM1.xml"),8,0.00015f,0.13f,0.2f,true,0.1f);
+    // Create ERFilter objects with the 1st and 2nd stage default classifiers: classifiers should be located at the start up folder
+    Ptr<ERFilter> er_filter1 = createERFilterNM1(loadClassifierNM1("trained_classifierNM1.xml"),16,0.000015f,0.13f,0.2f,true,0.1f);
     Ptr<ERFilter> er_filter2 = createERFilterNM2(loadClassifierNM2("trained_classifierNM2.xml"),0.5);
 
     vector<vector<ERStat> > regions(channels.size());
@@ -70,7 +92,7 @@ extern "C"  int  text_recognition2(unsigned char* img, int rows, int cols, int s
         er_filter1->run(channels[c], regions[c]);
         er_filter2->run(channels[c], regions[c]);
     }
-    cout << "TIME_REGION_DETECTION = " << ((double)getTickCount() - t_d)*1000/getTickFrequency() << endl;
+    cout << "TIME_REGION_DETECTION = " << ((double)getTickCount() - t_d)*1000/getTickFrequency() << "  FRAME"<< stime << endl;
 
     Mat out_img_decomposition= Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
     vector<Vec2i> tmp_group;
@@ -93,8 +115,6 @@ extern "C"  int  text_recognition2(unsigned char* img, int rows, int cols, int s
         char file_name_r[100];
         sprintf(file_name_r, "Debug_images/out_img_decomposition%d.jpg", stime);
         imwrite(file_name_r,out_img_decomposition);
-        sprintf(file_name_r, "Debug_images/img_orig%d.jpg", stime);
-        imwrite(file_name_r,grey);
     }
 
 
@@ -108,7 +128,7 @@ extern "C"  int  text_recognition2(unsigned char* img, int rows, int cols, int s
     /*Text Recognition (OCR)*/
     double t_r = (double)getTickCount();
     Ptr<OCRTesseract> ocr = OCRTesseract::create();
-    cout << "TIME_OCR_INITIALIZATION = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
+    //cout << "TIME_OCR_INITIALIZATION = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
     string output;
 
     Mat out_img;
@@ -169,11 +189,12 @@ extern "C"  int  text_recognition2(unsigned char* img, int rows, int cols, int s
 
     }
 
-    cout << "TIME_OCR = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
+    //cout << "TIME_OCR = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
 
     //resize(out_img_detection,out_img_detection,Size(image.cols*scale_img,image.rows*scale_img));
     //imshow("detection", out_img_detection);
-    //imwrite("detection.jpg", out_img_detection);
+    sprintf(file_name, "Debug_images/out_img_detection%d.jpg", stime);
+    imwrite(file_name, out_img_detection);
     //resize(out_img,out_img,Size(image.cols*scale_img,image.rows*scale_img));
     /*namedWindow("recognition",WINDOW_NORMAL);
     imshow("recognition", out_img);
@@ -195,7 +216,7 @@ extern "C"  int  text_recognition2(unsigned char* img, int rows, int cols, int s
 
 
 
-extern "C"  int   text_recognition(Mat image, int RecEval, vector<string> words_gt, int num_gt_characters  )
+extern "C"  int   text_recognition_(Mat image, int RecEval, vector<string> words_gt, int num_gt_characters  )
 {
 
  /*Text Detection*/
@@ -212,8 +233,8 @@ extern "C"  int   text_recognition(Mat image, int RecEval, vector<string> words_
 
     double t_d = (double)getTickCount();
     // Create ERFilter objects with the 1st and 2nd stage default classifiers
-    Ptr<ERFilter> er_filter1 = createERFilterNM1(loadClassifierNM1("trained_classifierNM1.xml"),8,0.00015f,0.13f,0.2f,true,0.1f);
-    Ptr<ERFilter> er_filter2 = createERFilterNM2(loadClassifierNM2("trained_classifierNM2.xml"),0.5);
+    Ptr<ERFilter> er_filter1 = createERFilterNM1(loadClassifierNM1("./TextMSER/trained_classifierNM1.xml"),8,0.00015f,0.13f,0.2f,true,0.1f);
+    Ptr<ERFilter> er_filter2 = createERFilterNM2(loadClassifierNM2("./TextMSER/trained_classifierNM2.xml"),0.5);
 
     vector<vector<ERStat> > regions(channels.size());
     // Apply the default cascade classifier to each independent channel (could be done in parallel)
@@ -525,7 +546,7 @@ int main(int argc, char* argv[])
             }
         }
     }
-    text_recognition(image, 0, words_gt, num_gt_characters );
+    text_recognition_(image, 0, words_gt, num_gt_characters );
     //text_recognition2(image);
     return 0;
 }

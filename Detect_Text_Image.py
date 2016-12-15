@@ -8,6 +8,7 @@ import cv2
 import time
 import logging
 from ctypes import *
+from PIL import Image, ImageEnhance
 
 #Define logging level
 logging.basicConfig(level=logging.DEBUG)
@@ -19,11 +20,17 @@ def er_draw():
 
 
 def text_recognition(img, Debug,i):
+    #Preprocessing to enhance text structure in the image
+    #Image enhancement using PIL
+    image = Image.open(str(sys.argv[1]))
+    contrast = ImageEnhance.Contrast(image)
+    contrasted = contrast.enhance(2)
+    contrasted.show()
 
     (rows, cols) = (img.shape[0], img.shape[1])
     # Load the dll
-    mydll = cdll.LoadLibrary("/opt/exe/opencv_contrib/modules/text/samples/Text.so")
-    mydll.text_recognition2(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug)
+    mydll = cdll.LoadLibrary("TextMSER/Text.so")
+    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug)
 
 def text_detect_image(img, Debug):
 
@@ -104,8 +111,8 @@ def main():
     Debug = int(args.debug)
 
     starttime = time.time()
-    mydll = cdll.LoadLibrary("/opt/exe/opencv_contrib/modules/text/samples/Text.so")
-    mydll.text_recognition2(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols)
+    mydll = cdll.LoadLibrary("TextMSER/Text.so")
+    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols)
     #text_detect_image(img,Debug)
     endtime = time.time()
 

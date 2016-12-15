@@ -29,7 +29,7 @@ def dump_video(args):
             os.makedirs(dumpRepo)
             print 'And create the dump folder!!'
 
-    subprocess.call('ffmpeg -i ' + args.input + ' -vf fps=' + args.frequency + ' ' + dumpRepo + '/frame-%d.jpg' + ' -threads 0', shell=True) #faster use jpg but lower image quality
+    subprocess.call('ffmpeg -i ' + args.input + ' -vf fps=' + args.frequency + ' ' + dumpRepo + '/frame-%d.png' + ' -threads 0', shell=True) #faster use jpg but lower image quality
     #subprocess.call('ffmpeg -i ' + args.input + ' -r ' + args.frequency + ' -f image2 ' + dumpRepo + '/frame-%d.jpg'  + ' -threads 0', shell=True)
 
 
@@ -114,7 +114,6 @@ def text_detect_video(args):
     end_dump = time.time()
     logging.info('(1). Job finished in %f' % (end_dump-start))
 
-
     #2- Detect channel logo to discard unwanted frames
     logging.info('(2). Detect and discard announcement frames')
     #loop on the dumped frames
@@ -142,8 +141,8 @@ def text_detect_video(args):
     logging.info('(3). Text regions detection')
     #loop on the dumped frames
     for i in xrange(0,len(output),1):
-         #if output[i, 0] > 10:
-             im = cv2.imread(args.dumprepo + "/frame-%d.jpg" %(i+1))
+         if output[i, 0] > 10:
+             im = cv2.imread(args.dumprepo + "/frame-%d.png" %(i+1))
              arg_pool.append([im,Debug,i*int(np.round(fps/fintv))])
 
     #run multiple processing
@@ -154,6 +153,11 @@ def text_detect_video(args):
 
     end_text = time.time()
     logging.info('(3). Job finished in %f' % (end_text-end_logo))
+
+    #Remove the dumped frames
+    if os.path.exists(args.dumprepo):
+        subprocess.call('rm -rf '+ args.dumprepo, shell=True)
+        print 'removing dump folder!!'
 
     return 0
 
