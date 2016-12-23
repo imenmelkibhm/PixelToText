@@ -22,10 +22,11 @@ def er_draw():
 def text_recognition(img, Debug,i):
     #Preprocessing to enhance text structure in the image
     #Image enhancement using PIL
-    image = Image.open(str(sys.argv[1]))
+    image = Image.fromarray(img) #Image.open(str(sys.argv[2]))
     contrast = ImageEnhance.Contrast(image)
-    contrasted = contrast.enhance(2)
-    contrasted.show()
+    contrasted = contrast.enhance(1)
+    #contrasted.show()
+    img = np.array(contrasted)
 
     (rows, cols) = (img.shape[0], img.shape[1])
     # Load the dll

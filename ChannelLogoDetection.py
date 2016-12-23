@@ -1,5 +1,9 @@
 # Exemple: python ChannelLogoDetection.py -i /opt/exe/textocr/demo/Chunks/iTele/iTele_20161017_18444715_18494715_SD.ts -l /opt/exe/textocr/demo/AddsReferenceFrames_ITELE/LogoITELE.png -o /opt/exe/Code/RemoveAdds/ -n  iTele_20161017_18444715_18494715_SD -f 1 -d 0
 
+
+#Some other ideas
+#use the mask of the logo/ the histogram, the similarity measure..
+
 from skimage.measure import structural_similarity as ssim
 import logging
 import os
@@ -108,23 +112,24 @@ def Detect_Logo_SIFT_Video(args):
     pl.show()
 
 
-def Detect_Logo_Chanel_Frame(dumpRepo, logoIm, i, x1, x2, y1, y2):
+def Detect_Logo_Chanel_Frame(dumpRepo, logoIm, i, x1, y1, x2, y2):
     #print "In Detect_Logo_Chanel_Frame %d " + format(i+1)
     im = cv2.imread(dumpRepo + "/frame-%d.png" %(i+1))
+
     if im is not None:
-        frame_roi = im[x1:x2,y1:y2]
-        return Detect_Logo_BRISK_Frame(logoIm,frame_roi,0, i)
+        frame_roi = im[y1:y2,x1:x2]
+        return Detect_Logo_BRISK_Frame(logoIm,frame_roi,1, i)
     else:
         return -1
 
-def Detect_Logo_Chanel(dumpRepo, logo, fintv, fps, frn, x1, x2, y1, y2):
+def Detect_Logo_Chanel(dumpRepo, logo, fintv, fps, frn, x1, y1, x2, y2):
     maxframe = int(fintv*frn/fps)
     logoIm = cv2.imread(logo)  # logo image
     n_matches = []
     for i in xrange(0,maxframe+1,1):
         im = cv2.imread(dumpRepo + "/frame-%d.png" %(i+1))
         if im is not None:
-            frame_ROI = im[x1:x2,y1:y2]
+            frame_ROI = im[y1:y2,x1:x2]
             n_matches.append(Detect_Logo_BRISK_Frame(logoIm,frame_ROI,0, i))
 
 
@@ -307,8 +312,12 @@ def Detect_Logo_ORB_Frame(logo, frame, Debug, i):
 
 
 def Detect_Logo_BRISK_Frame(logo, frame, Debug, i):
+
+    scale = 2
+    frame = cv2.resize(frame, None, fx= scale, fy= scale, interpolation=cv2.INTER_CUBIC)
     gray = cv2.cvtColor(logo, cv2.COLOR_BGR2GRAY)
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
 
     #initiate the SIFT descriptor
     brisk = cv2.BRISK_create()

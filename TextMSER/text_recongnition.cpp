@@ -77,7 +77,7 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
     cvtColor(image,grey,COLOR_RGB2GRAY);
     // Notice here we are only using grey channel, see textdetection.cpp for example with more channels
     channels.push_back(grey);
-    channels.push_back(255-grey);
+    //channels.push_back(255-grey);
 
 
     double t_d = (double)getTickCount();
@@ -96,11 +96,14 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
 
     Mat out_img_decomposition= Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
     vector<Vec2i> tmp_group;
+    vector<ERStat>  regions_all_;
+    vector<vector<ERStat> > regions_all;
     for (int i=0; i<(int)regions.size(); i++)
     {
         for (int j=0; j<(int)regions[i].size();j++)
         {
             tmp_group.push_back(Vec2i(i,j));
+            regions_all_.push_back(regions[i][j]);
         }
         Mat tmp= Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
         er_draw(channels, regions, tmp_group, tmp);
@@ -109,7 +112,8 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
         out_img_decomposition = out_img_decomposition | tmp;
         tmp_group.clear();
     }
-
+    regions_all.push_back(regions_all_);
+    //cout << "regions all size: " << regions_all[0].size() << " regions size: " << i*j <<endl;
     if (Debug)
     {
         char file_name_r[100];
@@ -122,7 +126,7 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
     // Detect character groups
     vector< vector<Vec2i> > nm_region_groups;
     vector<Rect> nm_boxes;
-    erGrouping(image, channels, regions, nm_region_groups, nm_boxes,ERGROUPING_ORIENTATION_HORIZ);
+    erGrouping(image, channels, regions_all, nm_region_groups, nm_boxes,ERGROUPING_ORIENTATION_HORIZ);
     cout << "TIME_GROUPING = " << ((double)getTickCount() - t_g)*1000/getTickFrequency() << endl;
 
     /*Text Recognition (OCR)*/
@@ -145,7 +149,7 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
     for (int i=0; i<(int)nm_boxes.size(); i++)
     {
 
-        rectangle(out_img_detection, nm_boxes[i].tl(), nm_boxes[i].br(), Scalar(0,255,255), 3);
+        rectangle(out_img_detection, nm_boxes[i].tl(), nm_boxes[i].br(), Scalar(255,0,255), 2);
 
         Mat group_img = Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
         er_draw(channels, regions, nm_region_groups[i], group_img);
