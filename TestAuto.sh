@@ -2,6 +2,7 @@
 
 rm -f Debug_*
 
+
 dir=/opt/exe/textocr/demo/Chunks/TF1
 cd $dir
 chunk_list=`ls | grep _SD.ts`
