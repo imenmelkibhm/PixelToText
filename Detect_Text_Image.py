@@ -22,13 +22,13 @@ def er_draw():
 def text_recognition(img, Debug,i):
     #Preprocessing to enhance text structure in the image
     #Image enhancement using PIL
-    image = Image.fromarray(img) #Image.open(str(sys.argv[2]))
+    image = Image.fromarray(img)
     contrast = ImageEnhance.Contrast(image)
     contrasted = contrast.enhance(1)
     #contrasted.show()
     img = np.array(contrasted)
-
     (rows, cols) = (img.shape[0], img.shape[1])
+
     # Load the dll
     mydll = cdll.LoadLibrary("TextMSER/Text.so")
     mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug)
@@ -112,8 +112,7 @@ def main():
     Debug = int(args.debug)
 
     starttime = time.time()
-    mydll = cdll.LoadLibrary("TextMSER/Text.so")
-    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols)
+    text_recognition(img, Debug,0)
     #text_detect_image(img,Debug)
     endtime = time.time()
 

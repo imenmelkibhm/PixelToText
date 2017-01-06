@@ -1,0 +1,2 @@
+convert -size 720x576 xc:black channel_MASK.png
+convert channel_MASK.png -fill grey39 -draw "rectangle x1,y1 x2,y2"  ITELE_MASK.png

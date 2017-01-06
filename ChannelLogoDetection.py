@@ -118,7 +118,7 @@ def Detect_Logo_Chanel_Frame(dumpRepo, logoIm, i, x1, y1, x2, y2):
 
     if im is not None:
         frame_roi = im[y1:y2,x1:x2]
-        return Detect_Logo_BRISK_Frame(logoIm,frame_roi,1, i)
+        return Detect_Logo_BRISK_Frame(logoIm,frame_roi,0, i)
     else:
         return -1
 
@@ -126,6 +126,7 @@ def Detect_Logo_Chanel(dumpRepo, logo, fintv, fps, frn, x1, y1, x2, y2):
     maxframe = int(fintv*frn/fps)
     logoIm = cv2.imread(logo)  # logo image
     n_matches = []
+
     for i in xrange(0,maxframe+1,1):
         im = cv2.imread(dumpRepo + "/frame-%d.png" %(i+1))
         if im is not None:

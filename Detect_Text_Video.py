@@ -1,5 +1,6 @@
 #This file defines the main routine for the text detection task in a given video
 import logging
+import traceback
 import os
 import numpy as np
 import cv2
@@ -51,6 +52,13 @@ def readconfig(args):
                 logging.info("Config of the logo path for "+ found + " : " + logo_path)
                 args.logo_path = logo_path
 
+        if config.has_option(found, "text_zone"):
+            text_zone=config.get(found,"text_zone", '')
+            if text_zone != '':
+                logging.info("Config of the text zone for "+ found + " : " + text_zone)
+                args.text_zone = text_zone
+
+
 def dump_video(args):
 
     #Create the dump repo
@@ -77,8 +85,8 @@ def text_detect_image_parallel(arg):
     stime=arg[2]
 
     try:
-        #text_detect_image(im,Debug)
         text_recognition(im, Debug,stime)
+        logging.error('End Text_recognition for frame {0}'.format(stime))
         return
     except OSError as e:
         s = str(e)
@@ -128,7 +136,6 @@ def Detect_Logo_Chanel_parallel(arg):
 
 #Text detection in video using multiprocessing
 def text_detect_video(args):
-
     start = time.time()
     #Open the video and get params
     cap = cv2.VideoCapture(args.input)
@@ -185,17 +192,20 @@ def text_detect_video(args):
         logging.error('No chain logo information found! Can not process this step. The whole video will be processed for text detection.')
 
 
-    #results = sorted(results, key=operator.itemgetter(1))
     logging.info('(3). Text regions detection')
     #Load the corresponding mask frame for text search
-    mask = cv2.imread('Masks/ITELE_MASK.png',0)
-    ret, mask = cv2.threshold(mask, 10, 255, cv2.THRESH_BINARY)
+    if args.text_zone!='':
+        mask = cv2.imread(args.text_zone,0)
+        ret, mask = cv2.threshold(mask, 10, 255, cv2.THRESH_BINARY)
+
     #loop on the dumped frames
+    logging.error(' Output length %d:',len(output) )
     for i in xrange(0,len(output),1):
-         if output[i, 0] > 10:
-             im = cv2.imread(args.dumprepo + "/frame-%d.png" %(i+1))
-             #im = cv2.bitwise_and(im, im, mask = mask)
-             arg_pool.append([im,Debug,i*int(np.round(fps/fintv))])
+         #if output[i, 0] > 0:
+            im = cv2.imread(args.dumprepo + "/frame-%d.png" %(i+1))
+            if mask is not None:
+                im = cv2.bitwise_and(im, im, mask = mask)
+            arg_pool.append([im,Debug,i*int(np.round(fps/fintv))])
 
     #run multiple processing
     pool2.imap(text_detect_image_parallel, arg_pool)
@@ -203,8 +213,9 @@ def text_detect_video(args):
     pool2.join()
     pool2.terminate()
 
+    logging.error('(3). Job finished in ')
     end_text = time.time()
-    logging.info('(3). Job finished in %f' % (end_text-end_logo))
+    logging.error('(3). Job finished in %f' % (end_text-end_logo))
 
     #Remove the dumped frames
     if os.path.exists(args.dumprepo):
@@ -223,6 +234,7 @@ def main():
     parser.add_argument("-dr", "--dumprepo", help="the temporary folder used to dump the video images")
     parser.add_argument("-lz", "--logo_zone", type=str, default='', help="zones in which we check channel logo: x1,y1,x2,y2 ")
     parser.add_argument("-l", "--logo_path", type=str, default='', help="the channel logo path")
+    parser.add_argument("-tz", "--text_zone", type=str, default='', help="The text zone")
     parser.add_argument("-b", "--beginning", nargs='?', type=int, help="the adds beginning time")
     parser.add_argument("-e", "--end", nargs='?', type=int, help="the adds end time")
     parser.add_argument("-d", "--debug", nargs='?', type=int, default=0, help="Debug mode")
