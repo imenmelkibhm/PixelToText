@@ -34,7 +34,7 @@ bool   sort_by_lenght(const string &a, const string &b);
 void   er_draw(vector<Mat> &channels, vector<vector<ERStat> > &regions, vector<Vec2i> group, Mat& segmentation);
 
 /*Text Regions Detection*/
-extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug)
+extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug, int MULTI_CHANNEL)
 {
 
  cout<< "Debug value :"<<Debug << endl;
@@ -59,10 +59,15 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
     }
 
     vector<Mat> channels;
-    //computeNMChannels(image, channels);
-    Mat grey; //Use only the gray channel and its opposite
-    cvtColor(image,grey,COLOR_RGB2GRAY);
-    channels.push_back(grey);
+    if (MULTI_CHANNEL)
+      computeNMChannels(image, channels);
+    else
+    {
+        Mat grey; //Use only the gray channel and its opposite
+        cvtColor(image,grey,COLOR_RGB2GRAY);
+        channels.push_back(grey);
+    }
+
     int cn = (int)channels.size();
     // Append negative channels to detect ER- (bright regions over dark background)
     for (int c = 0; c < cn; c++)
@@ -84,8 +89,8 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
     Ptr<ERFilter> er_filter1 = createERFilterNM1(loadClassifierNM1("trained_classifierNM1.xml"),16,0.000015f,0.13f,0.2f,true,0.1f);
     Ptr<ERFilter> er_filter2 = createERFilterNM2(loadClassifierNM2("trained_classifierNM2.xml"),0.5);
 
-    vector<vector<ERStat> > regions(channels.size());
     // Apply the default cascade classifier to each independent channel (could be done in parallel)
+    vector<vector<ERStat> > regions(channels.size());
     for (int c=0; c<(int)channels.size(); c++)
     {
         er_filter1->run(channels[c], regions[c]);
@@ -116,13 +121,24 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
         imwrite(file_name_r,out_img_decomposition);
     }
 
-
-    double t_g = (double)getTickCount();
     // Detect character groups
+    double t_g = (double)getTickCount();
     vector< vector<Vec2i> > nm_region_groups;
     vector<Rect> nm_boxes;
     erGrouping(image, channels, regions, nm_region_groups, nm_boxes,ERGROUPING_ORIENTATION_HORIZ);
     cout << "TIME_GROUPING = " << ((double)getTickCount() - t_g)*1000/getTickFrequency() << endl;
+
+    // Remove too little isolated regions
+    for (int i=0; i<(int)nm_boxes.size(); i++)
+    {
+        float ratio = (float) nm_boxes[i].height/nm_boxes[i].width;
+        int height = nm_boxes[i].height;
+        if (((ratio < 0.11) && (height < 14)) || (height <= 12))
+        {
+            nm_boxes.erase(nm_boxes.begin()+i);
+            i--;
+        }
+    }
 
     // Merge overlapping text regions
     bool foundIntersection = false;
@@ -139,7 +155,7 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
                 {
                     foundIntersection = true;
                     Rect uni = nm_boxes[i] | nm_boxes[j]; //compute the rectangles union
-                    current = uni;
+                    current = uni & Rect(0,0,image.cols, image.rows); // To avoid a rectangle getting out of the image
                     nm_boxes.erase(nm_boxes.begin()+j);
                     nm_boxes.at(i) = current;
                     j--;
@@ -167,16 +183,14 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
         }
     }
 
-    // Remove too little isolated regions
+    //Enlarge texte zones to include border charatcers:
     for (int i=0; i<(int)nm_boxes.size(); i++)
     {
-        float ratio = (float) nm_boxes[i].height/nm_boxes[i].width;
-        int height = nm_boxes[i].height;
-        if (((ratio < 0.11) && (height < 10)) || (height <= 8))
-        {
-            nm_boxes.erase(nm_boxes.begin()+i);
-            i--;
-        }
+        cv::Point  inflationPoint(-5,-5);
+        cv::Size  inflationSize(10,10);
+        nm_boxes[i] += inflationPoint;
+        nm_boxes[i] += inflationSize;
+        nm_boxes[i] = nm_boxes[i] & Rect(0,0,image.cols, image.rows); // To avoid a rectangle getting out of the image
     }
 
     cout << "TIME_FILTERING = " << ((double)getTickCount() - t_g)*1000/getTickFrequency() << endl;
@@ -194,8 +208,18 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
     }
 
     // Post-processing of the text regions to extract the binary text images.
-
-
+    for (int i=0; i<(int)nm_boxes.size(); i++)
+    {
+        char file_name_[100];
+        Mat roi = Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
+        image(nm_boxes[i]).copyTo(roi);
+        Mat resized;
+        resize(roi, resized, Size(), 2, 2, INTER_CUBIC);
+        sprintf(file_name_, "Debug_images/zone%d.jpg", i);
+        imwrite(file_name_,roi);
+        sprintf(file_name_, "Debug_images/zone%d_zoomed.jpg", i);
+        imwrite(file_name_,resized);
+    }
 
 
     if(0)

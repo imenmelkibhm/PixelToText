@@ -31,7 +31,7 @@ def text_recognition(img, Debug,i):
 
     # Load the dll
     mydll = cdll.LoadLibrary("TextMSER/Text.so")
-    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug)
+    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,1)
 
 def text_detect_image(img, Debug):
 
@@ -50,7 +50,7 @@ def text_detect_image(img, Debug):
     #print("    (...) this may take a while (...)")
     for channel in channels:
         erc1 = cv2.text.loadClassifierNM1(pathname + '/trained_classifierNM1.xml')
-        er1 = cv2.text.createERFilterNM1(erc1, 16, 0.00015, 0.13, 0.2, True, 0.1)
+        er1 = cv2.text.createERFilterNM1(erc1, 8, 0.00015, 0.13, 0.2, True, 0.1)#16
 
         erc2 = cv2.text.loadClassifierNM2(pathname + '/trained_classifierNM2.xml')
         er2 = cv2.text.createERFilterNM2(erc2, 0.5)
@@ -82,8 +82,6 @@ def text_detect_image(img, Debug):
         rect = rects[i]
         cv2.rectangle(out_img_detection, (rect[0],rect[1]), (rect[0]+rect[2],rect[1]+rect[3]), (255, 0, 255), 3 )
         #group_img = np.zeros(img.shape[0], img.shape[1], np.uint8)
-
-
 
     return rects
 

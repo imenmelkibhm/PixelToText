@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-rm -f Debug_*
+rm -rf Debug_*
 
 dir=/opt/exe/textocr/demo/Chunks/TF1
 cd $dir

@@ -66,7 +66,7 @@ def dump_video(args):
     if dumpRepo != '' and not os.path.exists(dumpRepo):
         os.makedirs(dumpRepo)
         print 'Create the dump folder!!'
-    #If the depo already exists
+    #If the repo already exists
     else:
         if os.path.exists(dumpRepo):
             subprocess.call('rm -rf '+ dumpRepo, shell=True)
