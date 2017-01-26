@@ -203,8 +203,8 @@ def text_detect_video(args):
     for i in xrange(0,len(output),1):
          #if output[i, 0] > 0:
             im = cv2.imread(args.dumprepo + "/frame-%d.png" %(i+1))
-            if mask is not None:
-                im = cv2.bitwise_and(im, im, mask = mask)
+            #if mask is not None:
+                #im = cv2.bitwise_and(im, im, mask = mask)
             arg_pool.append([im,Debug,i*int(np.round(fps/fintv))])
 
     #run multiple processing

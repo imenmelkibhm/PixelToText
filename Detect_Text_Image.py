@@ -25,13 +25,21 @@ def text_recognition(img, Debug,i):
     image = Image.fromarray(img)
     contrast = ImageEnhance.Contrast(image)
     contrasted = contrast.enhance(1)
+
     #contrasted.show()
     img = np.array(contrasted)
     (rows, cols) = (img.shape[0], img.shape[1])
 
+    #sharpen the image
+    kernel = np.zeros((9, 9), np.float32)
+    kernel[4, 4] = 2.0  # Identity, times two!
+    boxFilter = np.ones((9, 9), np.float32) / 81.0
+    kernel = kernel - boxFilter
+    img = cv2.filter2D(img, -1, kernel)
+
     # Load the dll
     mydll = cdll.LoadLibrary("TextMSER/Text.so")
-    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,1)
+    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,0)
 
 def text_detect_image(img, Debug):
 

@@ -2,4 +2,3 @@ Text detection and recognition module using the OPENCV MSER-Based text detection
 
 #To compile and create the shared lib
 g++ -shared -Wl,-soname,TextDetect -o Text.so -ggdb `pkg-config --cflags --libs opencv` -lboost_system -lboost_filesystem -fPIC text_recongnition.cpp
-

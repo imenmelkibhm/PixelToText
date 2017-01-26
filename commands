@@ -1,0 +1,3 @@
+python ./Detect_Text_Image.py -i /opt/exe/opencv_contrib/modules/text/samples/scenetext01.jpg -o Demo -d 1
+
+g++ -shared -Wl,-soname,TextDetect -o Text.so -ggdb `pkg-config --cflags --libs opencv` -fPIC text_recongnition.cpp

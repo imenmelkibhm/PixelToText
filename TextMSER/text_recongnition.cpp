@@ -51,6 +51,7 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
 
     // Extract channels to be processed individually
     Mat image(rows, cols, CV_8UC3, (void *) img);
+
     if (Debug)
     {
         char file_name[100];
@@ -128,6 +129,16 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
     erGrouping(image, channels, regions, nm_region_groups, nm_boxes,ERGROUPING_ORIENTATION_HORIZ);
     cout << "TIME_GROUPING = " << ((double)getTickCount() - t_g)*1000/getTickFrequency() << endl;
 
+//    //Enlarge texte zones to include border charatcers:
+//    for (int i=0; i<(int)nm_boxes.size(); i++)
+//    {
+//        cv::Point  inflationPoint(2,2);
+//        cv::Size  inflationSize(-4,-4);
+//        nm_boxes[i] += inflationPoint;
+//        nm_boxes[i] += inflationSize;
+//        nm_boxes[i] = nm_boxes[i] & Rect(0,0,image.cols, image.rows); // To avoid a rectangle getting out of the image
+//    }
+
     // Remove too little isolated regions
     for (int i=0; i<(int)nm_boxes.size(); i++)
     {
@@ -138,9 +149,11 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
             nm_boxes.erase(nm_boxes.begin()+i);
             i--;
         }
+
     }
 
     // Merge overlapping text regions
+    if (1){
     bool foundIntersection = false;
     do
     {
@@ -165,7 +178,7 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
 
     } while (foundIntersection);
     cout << "TIME_MERGING = " << ((double)getTickCount() - t_g)*1000/getTickFrequency() << endl;
-
+    }
     if (Debug)
     {
         Mat rectangles;
@@ -175,9 +188,9 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
         {
             rectangle(rectangles, nm_boxes[i].tl(), nm_boxes[i].br(), Scalar(255,0,255), 2);
             float ratio = (float) nm_boxes[i].height/nm_boxes[i].width;
-            char str[200];
-            sprintf(str,"%d %d ", nm_boxes[i].height, nm_boxes[i].width);
-            putText(rectangles, str, nm_boxes[i].tl(), FONT_HERSHEY_SIMPLEX, 0.8, cvScalar(100,50,50), 2, CV_AA );
+            //char str[200];
+            //sprintf(str,"%d %d ", nm_boxes[i].height, nm_boxes[i].width);
+            //putText(rectangles, str, nm_boxes[i].tl(), FONT_HERSHEY_SIMPLEX, 0.8, cvScalar(100,50,50), 2, CV_AA );
             sprintf(file_name_, "Debug_images/rectangles_%d.jpg",stime);
             imwrite(file_name_,rectangles );
         }
@@ -213,12 +226,22 @@ extern "C"  int  text_recognition(unsigned char* img, int rows, int cols, int st
         char file_name_[100];
         Mat roi = Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
         image(nm_boxes[i]).copyTo(roi);
-        Mat resized;
-        resize(roi, resized, Size(), 2, 2, INTER_CUBIC);
-        sprintf(file_name_, "Debug_images/zone%d.jpg", i);
+        sprintf(file_name_, "Debug_images/zone%d_%d.jpg",stime ,i);
         imwrite(file_name_,roi);
-        sprintf(file_name_, "Debug_images/zone%d_zoomed.jpg", i);
+        //Zoom
+        Mat resized;
+        Mat roi_grey;
+        resize(roi, resized, Size(), 2, 2, INTER_CUBIC);
+        cvtColor(resized,roi_grey,COLOR_RGB2GRAY);
+        sprintf(file_name_, "Debug_images/zone%d_%d_zoomed.jpg", stime ,i);
         imwrite(file_name_,resized);
+        //Binarise the image
+        Mat thresholded;
+        GaussianBlur(roi_grey,roi_grey, Size(3,3), 0,0);
+        cv::threshold(roi_grey,thresholded, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+        sprintf(file_name_, "Debug_images/zone%d_%d_thresh.jpg", stime ,i);
+        imwrite(file_name_,thresholded);
+
     }
 
 

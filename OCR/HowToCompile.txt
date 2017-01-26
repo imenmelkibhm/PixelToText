@@ -1,0 +1,4 @@
+make 
+
+g++ -shared -Wl,-soname,Hello -o libHello.so BstrWrap.o FileSystem.o FREngineLoader.o Hello.o -L../../Bin/ -lFREngine -lpthread -ldl -Wl,-rpath-link ../../Bin
+

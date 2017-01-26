@@ -1,0 +1,6 @@
+import sys
+import os
+
+ # Load the dll
+    mydll = cdll.LoadLibrary("Hello.so")
+    mydll.processImage()
