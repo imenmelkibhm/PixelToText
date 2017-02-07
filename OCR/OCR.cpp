@@ -24,7 +24,6 @@ void processImage();
 extern "C" void executeTask()
 {
 	try {			
-
 		// Load ABBYY FineReader Engine
 		displayMessage( L"Initializing Engine..." );
 		LoadFREngine();
