@@ -12,7 +12,7 @@ FRE_LIBDIR = /opt/exe/FREngine11/Bin
 FRE_INCDIR = /opt/exe/FREngine11/Inc
 FRE_LDFLAGS = -lFREngine
 
-CppSourceFiles = Hello.cpp $(wildcard /opt/exe/FREngine11/Samples/SharedTools/*.cpp)
+CppSourceFiles = OCR.cpp $(wildcard /opt/exe/FREngine11/Samples/SharedTools/*.cpp)
 
 ObjFiles = $(notdir $(CppSourceFiles:.cpp=.o))
 IncludeString = $(addprefix -I, $(FRE_INCDIR)) -I/opt/exe/FREngine11/Samples/SharedTools
@@ -40,7 +40,7 @@ rebuild:
 
 # Generate executable from object files
 $(TargetPath): $(ObjFiles)
-	$(CXX) -shared -Wl,-soname,Hello $(CXXFLAGS) -o libOCR.so $^ $(LDFLAGS)
+	$(CXX) -shared -Wl,-soname,libocr.so $(CXXFLAGS) -o libocr.so $^ $(LDFLAGS)
 
 # Generate object files from .cpp files
 %.o : %.cpp

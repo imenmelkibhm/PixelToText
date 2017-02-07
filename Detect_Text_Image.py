@@ -9,6 +9,8 @@ import time
 import logging
 from ctypes import *
 from PIL import Image, ImageEnhance
+from itertools import takewhile
+
 
 #Define logging level
 logging.basicConfig(level=logging.DEBUG)
@@ -39,7 +41,10 @@ def text_recognition(img, Debug,i):
 
     # Load the dll
     mydll = cdll.LoadLibrary("TextMSER/Text.so")
-    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,0)
+    mydll.text_recognition.restype = POINTER(c_char_p)
+    res = mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,0)
+    #for s in takewhile(lambda x: x is not "end",res):
+        #print s
 
 def text_detect_image(img, Debug):
 

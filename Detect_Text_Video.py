@@ -19,43 +19,38 @@ def readconfig(args):
     found = False
     config = ConfigParser.ConfigParser()
     config.read('logos.conf')
-    #chercher config par chaine
-    chunckname=os.path.basename(args.input)
-    names=chunckname.split('_')
-    chaine=names[0].lower()
+    #chercher config par chaine id
+    channel_id = args.id
+    #chunckname=os.path.basename(args.input)
+    #names=chunckname.split('_')
+    #chaine=names[0].lower()
 
-    chaines = config.sections()
-    if chaine in chaines:
-        found = chaine
-        logging.info("Config found for channel " + chaine)
-
-    else:
-        for c in chaines:
-            if chaine.startswith(c):
-                found = c
-                logging.info("Config found for channel " + chaine)
-                break
+    channels_id = config.sections()
+    if channel_id in channels_id:
+        found = channel_id
+        channel = config.get(found,"channel_name", '')
+        logging.info("Config found for channel " + channel)
 
     if found == None:
-        logging.info("Config NOT found for channel  " + chaine)
+        logging.info("Config NOT found for channel id  " + channel_id)
 
     else:
         if config.has_option(found, "logo_zone"):
             logo_zone=config.get(found,"logo_zone", '')
             if logo_zone != '':
-                logging.info("Config of the logo zone for "+ found + " : " + logo_zone)
+                logging.info("Config of the logo zone for "+ channel + " : " + logo_zone)
                 args.logo_zone = logo_zone
 
         if config.has_option(found, "logo_path"):
             logo_path=config.get(found,"logo_path", '')
             if logo_path != '':
-                logging.info("Config of the logo path for "+ found + " : " + logo_path)
+                logging.info("Config of the logo path for "+ channel + " : " + logo_path)
                 args.logo_path = logo_path
 
         if config.has_option(found, "text_zone"):
             text_zone=config.get(found,"text_zone", '')
             if text_zone != '':
-                logging.info("Config of the text zone for "+ found + " : " + text_zone)
+                logging.info("Config of the text zone for "+ channel + " : " + text_zone)
                 args.text_zone = text_zone
 
 
@@ -230,6 +225,7 @@ def main():
     #Read input arguments
     parser = argparse.ArgumentParser(description='Extract the adds frames')
     parser.add_argument("-i", "--input", help="input video file")
+    parser.add_argument("-id", "--id", help="id support")
     parser.add_argument("-f", "--frequency", default=1.0, help="the frequency of extracting and processing video frames")
     parser.add_argument("-dr", "--dumprepo", help="the temporary folder used to dump the video images")
     parser.add_argument("-lz", "--logo_zone", type=str, default='', help="zones in which we check channel logo: x1,y1,x2,y2 ")

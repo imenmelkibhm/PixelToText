@@ -13,24 +13,33 @@
 #include "BstrWrap.h"
 #include "AbbyyException.h"
 #include "../SamplesConfig.h"
+#include "OCR.h"
 #include <string>
 #include <iostream>
 
 // Forward declaration
 void displayMessage( const wchar_t* text );
-void processImage();
+BSTR processImage(BSTR imagePath);
 
 
-extern "C" void executeTask()
+
+extern "C" BSTR executeTask()
 {
-	try {			
-
+    BSTR retxt = new wchar_t[256];
+	try {
 		// Load ABBYY FineReader Engine
 		displayMessage( L"Initializing Engine..." );
 		LoadFREngine();
 
-		// Process Demo.tif image in SampleImages folder
-		processImage();
+		// Process the image
+		CBstr imagePath = "/opt/exe/PixelToText/Debug_BFMTV_20161018_02275507_02325507_SD/zone3425_0_zoomed.jpg";
+		retxt = processImage(imagePath);
+		displayMessage( L"Loading image22..." );
+		//std::wstring widestr = std::wstring(retxt.begin(), retxt.end());
+		displayMessage( retxt);
+
+		// Convert the recognized text
+		std::string retext = "";
 
 		// Unload ABBYY FineReader Engine
 		displayMessage( L"Deinitializing Engine..." );
@@ -39,17 +48,18 @@ extern "C" void executeTask()
 	} catch( CAbbyyException& e ) {
 		displayMessage( e.Description() );
 	}
+	return retxt;
 }
 
- void processImage()
+BSTR processImage(BSTR imagePath)
 {	
 	// Create document from image file
 	displayMessage( L"Loading image..." );
-	CBstr imagePath = Concatenate( GetSamplesFolder(), L"/SampleImages/Demo.tif" );
+	//CBstr imagePath = "/opt/exe/PixelToText/Debug_BFMTV_20161018_02275507_02325507_SD/zone3425_0_zoomed.jpg"; //Concatenate( GetSamplesFolder(), L"/SampleImages/Demo.tif" );
 	CSafePtr<IFRDocument> frDocument = 0;
 	CheckResult( FREngine->CreateFRDocumentFromImage( imagePath, 0, frDocument.GetBuffer() ) );
 
-	//Recognize document
+	// Recognize document
 	displayMessage( L"Recognizing..." );
 	CheckResult( frDocument->Process() );
 
@@ -57,6 +67,7 @@ extern "C" void executeTask()
     //CheckResult( frDocument->ExportToMemory(fileWriter, FEF_RTF, 0));
 
     std::string txt = "";
+    BSTR text;
     CSafePtr<IFRPages> frPages = 0;
     int count = 0;
     frDocument->get_Pages(frPages.GetBuffer());
@@ -68,9 +79,9 @@ extern "C" void executeTask()
         frPages->get_Element(i, &frPage);
         CSafePtr<IPlainText> plainText = 0;
         frPage->get_PlainText(&plainText);
-        BSTR text;
+
         plainText->get_Text(&text);
-        displayMessage( text);
+        displayMessage(text);
         //CSafePtr<ILayout> layout = 0;
         //CSafePtr<ILayoutBlocks> layoutBlocks = 0;
         //layout->get_Blocks(layoutBlocks.GetBuffer());
@@ -82,6 +93,7 @@ extern "C" void executeTask()
 	displayMessage( L"Saving results..." );
 	CBstr exportPath = Concatenate( GetSamplesFolder(), L"/SampleImages/Demo.rtf" );
 	CheckResult( frDocument->Export(  exportPath, FEF_RTF, 0  ) );
+	return text;
 }
 
 void displayMessage( const wchar_t* text )
@@ -92,7 +104,7 @@ void displayMessage( const wchar_t* text )
 
 int main()
 {
-	executeTask();
+	//executeTask();
 	return 0;
 }
 
