@@ -40,7 +40,7 @@ def text_recognition(img, Debug,i):
     img = cv2.filter2D(img, -1, kernel)
 
     # Load the dll
-    mydll = cdll.LoadLibrary("TextMSER/Text.so")
+    mydll = cdll.LoadLibrary("TextMSER/libText.so")
     mydll.text_recognition.restype = POINTER(c_char_p)
     res = mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,0)
     #for s in takewhile(lambda x: x is not "end",res):

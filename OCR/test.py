@@ -7,7 +7,7 @@ from itertools import takewhile
 ocrdll = cdll.LoadLibrary("./libocr.so")
 ocrdll.executeTask.restype = c_wchar_p
 ocrdll.executeTask.argtypes = [c_wchar_p]
-ret = ocrdll.executeTask("/opt/exe/PixelToText/Debug_BFMTV_20161018_02275507_02325507_SD/zone3425_0_thresh.jpg")
+ret = ocrdll.executeTask("/opt/exe/PixelToText/Debug_images/zone0_0_thresh.jpg")
 print 'end of script'
 print ret
 

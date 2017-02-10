@@ -19,11 +19,9 @@
 
 // Forward declaration
 void displayMessage( const wchar_t* text );
-BSTR processImage(BSTR imagePath);
+BSTR processImage(CBstr imagePath);
 
-
-
-extern "C" BSTR executeTask()
+extern "C" BSTR executeTask(const wchar_t* path)
 {
     BSTR retxt = new wchar_t[256];
 	try {
@@ -32,7 +30,7 @@ extern "C" BSTR executeTask()
 		LoadFREngine();
 
 		// Process the image
-		CBstr imagePath = "/opt/exe/PixelToText/Debug_BFMTV_20161018_02275507_02325507_SD/zone3425_0_zoomed.jpg";
+		CBstr imagePath = path;
 		retxt = processImage(imagePath);
 		displayMessage( L"Loading image22..." );
 		//std::wstring widestr = std::wstring(retxt.begin(), retxt.end());
@@ -51,7 +49,7 @@ extern "C" BSTR executeTask()
 	return retxt;
 }
 
-BSTR processImage(BSTR imagePath)
+BSTR processImage(CBstr imagePath)
 {	
 	// Create document from image file
 	displayMessage( L"Loading image..." );
@@ -66,7 +64,6 @@ BSTR processImage(BSTR imagePath)
     //CFileWriter *fileWriter =
     //CheckResult( frDocument->ExportToMemory(fileWriter, FEF_RTF, 0));
 
-    std::string txt = "";
     BSTR text;
     CSafePtr<IFRPages> frPages = 0;
     int count = 0;

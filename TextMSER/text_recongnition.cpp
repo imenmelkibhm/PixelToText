@@ -224,12 +224,11 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
     }
 
     char **textZones = (char **) malloc((1+nm_boxes.size())*sizeof(char **));
-
+    std::vector<const wchar_t*> textZonesPaths;
     // Post-processing of the text regions to extract the binary text images.
     for (int i=0; i<(int)nm_boxes.size(); i++)
     {
         char file_name_[100];
-        textZones[i]= (char *) malloc(100);
         Mat roi = Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
         image(nm_boxes[i]).copyTo(roi);
         sprintf(file_name_, "Debug_images/zone%d_%d.jpg",stime ,i);
@@ -245,27 +244,23 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
         Mat thresholded;
         GaussianBlur(roi_grey,roi_grey, Size(3,3), 0,0);
         cv::threshold(roi_grey,thresholded, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+        wchar_t *path = new wchar_t[100];
+        swprintf(path,100, L"Debug_images/zone%d_%d_thresh.jpg", stime ,i);
         sprintf(file_name_, "Debug_images/zone%d_%d_thresh.jpg", stime ,i);
         imwrite(file_name_,thresholded);
-        if(textZones[i]){
-            strcpy(textZones[i], file_name_);
-        }
-
-
+        textZonesPaths.push_back(path);
     }
 
     // Return the paths to the detected zones
+     for (int i=0; i<(int)nm_boxes.size(); i++)
     {
-
-        wchar_t* res = executeTask();
+        std::wcout << textZonesPaths[i] << endl;
+        wchar_t* res = executeTask(textZonesPaths[i]);
         std::wcout<< res <<std::endl;
-        //wchar_t* res = executeTask((wchar_t*)"/opt/exe/PixelToText/Debug_BFMTV_20161018_02275507_02325507_SD/zone3425_0_thresh.jpg");
-        textZones[nm_boxes.size()]= (char *) malloc(100);
+    }
+    textZones[nm_boxes.size()]= (char *) malloc(100);
         strcpy(textZones[nm_boxes.size()], "end");
         return textZones;
-
-    }
-
     if(0)
     {
         /*Text Recognition (OCR)*/
@@ -666,7 +661,7 @@ bool   sort_by_lenght(const string &a, const string &b){return (a.size()>b.size(
 int main(int argc, char* argv[])
 {
 
-    wchar_t* res = executeTask();
+    wchar_t* res = executeTask(L"/opt/exe/PixelToText/Debug_BFMTV_20161018_02275507_02325507_SD/zone3425_0_thresh.jpg");
 
     cout << endl << argv[0] << endl << endl;
     cout << "A demo program of End-to-end Scene Text Detection and Recognition: " << endl;

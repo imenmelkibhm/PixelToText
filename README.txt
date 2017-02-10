@@ -26,3 +26,13 @@ g++ -shared -Wl,-soname,TextDetect -o Text.so -ggdb `pkg-config --cflags --libs 
 
 
 g++ -shared -Wl,-soname,TextDetect -o Text.so -ggdb `pkg-config --cflags --libs opencv` -lboost_system -lboost_filesystem -fPIC text_recongnition.cpp
+
+
+#OCR component
+cd OCR/
+make
+Add the path to the generated shared library into the LD_LIBRARY_PATH as following:
+
+add the following line to the bashrc file:
+emacs ~/.bashrc
+export LD_LIBRARY_PATH=/opt/exe/PixelToText/OCR:${LD_LIBRARY_PATH}
