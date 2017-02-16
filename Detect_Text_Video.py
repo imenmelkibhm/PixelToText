@@ -60,14 +60,13 @@ def dump_video(args):
     dumpRepo = args.dumprepo
     if dumpRepo != '' and not os.path.exists(dumpRepo):
         os.makedirs(dumpRepo)
-        print 'Create the dump folder!!'
+        logging.info('Create the dump folder!!')
     #If the repo already exists
     else:
         if os.path.exists(dumpRepo):
             subprocess.call('rm -rf '+ dumpRepo, shell=True)
-            print 'removing old folder!!'
             os.makedirs(dumpRepo)
-            print 'And create the dump folder!!'
+            logging.info('Remove old dump folder and Create the new one!!')
 
     subprocess.call('ffmpeg -i ' + args.input + ' -vf fps=' + args.frequency + ' ' + dumpRepo + '/frame-%d.png' + ' -threads 0', shell=True) #faster use jpg but lower image quality
     #subprocess.call('ffmpeg -i ' + args.input + ' -r ' + args.frequency + ' -f image2 ' + dumpRepo + '/frame-%d.jpg'  + ' -threads 0', shell=True)
@@ -81,7 +80,7 @@ def text_detect_image_parallel(arg):
 
     try:
         text_recognition(im, Debug,stime)
-        logging.error('End Text_recognition for frame {0}'.format(stime))
+        logging.info('End Text_recognition for frame {0}'.format(stime))
         return
     except OSError as e:
         s = str(e)
@@ -109,7 +108,7 @@ def Detect_Logo_Chanel_parallel(arg):
 
     logoIm = cv2.imread(logo)  # logo image
     if logoIm is None:
-        logging.error('No logo image found!!')
+        logging.error('No logo image found for this channel!!')
         sys.exit(1)
 
     try:
@@ -184,8 +183,7 @@ def text_detect_video(args):
         end_logo = time.time()
         logging.info('(2). Job finished in %f' % (end_logo - end_dump))
     else:
-        logging.error('No chain logo information found! Can not process this step. The whole video will be processed for text detection.')
-
+        logging.error('No logo information found for this channel! Can not process this step. The whole video will be processed for text detection.')
 
     logging.info('(3). Text regions detection')
     #Load the corresponding mask frame for text search
@@ -200,6 +198,7 @@ def text_detect_video(args):
             im = cv2.imread(args.dumprepo + "/frame-%d.png" %(i+1))
             if mask is not None:
                 im = cv2.bitwise_and(im, im, mask = mask)
+            # Check for changes with the previous frame
             arg_pool.append([im,Debug,i*int(np.round(fps/fintv))])
 
     #run multiple processing

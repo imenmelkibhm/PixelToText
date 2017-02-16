@@ -32,12 +32,7 @@ extern "C" BSTR executeTask(const wchar_t* path)
 		// Process the image
 		CBstr imagePath = path;
 		retxt = processImage(imagePath);
-		displayMessage( L"Loading image22..." );
-		//std::wstring widestr = std::wstring(retxt.begin(), retxt.end());
 		displayMessage( retxt);
-
-		// Convert the recognized text
-		std::string retext = "";
 
 		// Unload ABBYY FineReader Engine
 		displayMessage( L"Deinitializing Engine..." );
@@ -53,7 +48,6 @@ BSTR processImage(CBstr imagePath)
 {	
 	// Create document from image file
 	displayMessage( L"Loading image..." );
-	//CBstr imagePath = "/opt/exe/PixelToText/Debug_BFMTV_20161018_02275507_02325507_SD/zone3425_0_zoomed.jpg"; //Concatenate( GetSamplesFolder(), L"/SampleImages/Demo.tif" );
 	CSafePtr<IFRDocument> frDocument = 0;
 	CheckResult( FREngine->CreateFRDocumentFromImage( imagePath, 0, frDocument.GetBuffer() ) );
 
@@ -78,14 +72,13 @@ BSTR processImage(CBstr imagePath)
         frPage->get_PlainText(&plainText);
 
         plainText->get_Text(&text);
+        std::wcout<< "Detected text: "<< text << std::endl;
         displayMessage(text);
         //CSafePtr<ILayout> layout = 0;
         //CSafePtr<ILayoutBlocks> layoutBlocks = 0;
         //layout->get_Blocks(layoutBlocks.GetBuffer());
 
     }
-
-
 	// Save results
 	displayMessage( L"Saving results..." );
 	CBstr exportPath = Concatenate( GetSamplesFolder(), L"/SampleImages/Demo.rtf" );
@@ -101,7 +94,7 @@ void displayMessage( const wchar_t* text )
 
 int main()
 {
-	//executeTask();
+	executeTask(L"/opt/exe/PixelToText/Debug_images/zone0_0_thresh.jpg");
 	return 0;
 }
 

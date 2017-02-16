@@ -17,8 +17,6 @@ c. sudo apt-get -t jessie-backports install ffmpeg
 
 
 
-
-
 #Compile source
 python ./Detect_Text_Image.py -i /opt/exe/opencv_contrib/modules/text/samples/scenetext01.jpg -o Demo -d 1
 

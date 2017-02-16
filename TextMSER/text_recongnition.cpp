@@ -15,7 +15,6 @@
 #include "opencv2/imgproc.hpp"
 #include "../OCR/OCR.h"
 
-
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <sstream>
@@ -28,16 +27,18 @@ using namespace std;
 using namespace cv;
 using namespace cv::text;
 
-//Calculate edit distance netween two words
+//Calculate edit distance nbetween two words
 size_t edit_distance(const string& A, const string& B);
 size_t min(size_t x, size_t y, size_t z);
 bool   isRepetitive(const string& s);
 bool   sort_by_lenght(const string &a, const string &b);
 //Draw ER's in an image via floodFill
 void   er_draw(vector<Mat> &channels, vector<vector<ERStat> > &regions, vector<Vec2i> group, Mat& segmentation);
+bool  isBlackTextOnWhite(Mat textZone);
+
 
 /*Text Regions Detection*/
-extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug, int MULTI_CHANNEL)
+extern "C"  void text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug, int MULTI_CHANNEL)
 {
 
  cout<< "Debug value :"<<Debug << endl;
@@ -76,17 +77,6 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
     // Append negative channels to detect ER- (bright regions over dark background)
     for (int c = 0; c < cn; c++)
         channels.push_back(255-channels[c]);
-
-    cout<<"number of channels: "<< channels.size()<<endl;
-    /*  if(Debug)
-    {
-        char file_name_r[100];
-        for (int c = 0; c < cn-1; c++)
-        {
-            sprintf(file_name, "Debug_images/chanel%d_%d.jpg", c, stime);
-            imwrite(file_name, channels[c]);
-        }
-    }*/
 
     double t_d = (double)getTickCount();
     // Create ERFilter objects with the 1st and 2nd stage default classifiers: classifiers should be located at the start up folder
@@ -132,16 +122,6 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
     erGrouping(image, channels, regions, nm_region_groups, nm_boxes,ERGROUPING_ORIENTATION_HORIZ);
     cout << "TIME_GROUPING = " << ((double)getTickCount() - t_g)*1000/getTickFrequency() << endl;
 
-//    //Enlarge texte zones to include border charatcers:
-//    for (int i=0; i<(int)nm_boxes.size(); i++)
-//    {
-//        cv::Point  inflationPoint(2,2);
-//        cv::Size  inflationSize(-4,-4);
-//        nm_boxes[i] += inflationPoint;
-//        nm_boxes[i] += inflationSize;
-//        nm_boxes[i] = nm_boxes[i] & Rect(0,0,image.cols, image.rows); // To avoid a rectangle getting out of the image
-//    }
-
     // Remove too little isolated regions
     for (int i=0; i<(int)nm_boxes.size(); i++)
     {
@@ -152,11 +132,9 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
             nm_boxes.erase(nm_boxes.begin()+i);
             i--;
         }
-
     }
 
     // Merge overlapping text regions
-    if (1){
     bool foundIntersection = false;
     do
     {
@@ -181,7 +159,7 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
 
     } while (foundIntersection);
     cout << "TIME_MERGING = " << ((double)getTickCount() - t_g)*1000/getTickFrequency() << endl;
-    }
+
     if (Debug)
     {
         Mat rectangles;
@@ -223,7 +201,6 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
         }
     }
 
-    char **textZones = (char **) malloc((1+nm_boxes.size())*sizeof(char **));
     std::vector<const wchar_t*> textZonesPaths;
     // Post-processing of the text regions to extract the binary text images.
     for (int i=0; i<(int)nm_boxes.size(); i++)
@@ -238,12 +215,16 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
         Mat roi_grey;
         resize(roi, resized, Size(), 2, 2, INTER_CUBIC);
         cvtColor(resized,roi_grey,COLOR_RGB2GRAY);
-        sprintf(file_name_, "Debug_images/zone%d_%d_zoomed.jpg", stime ,i);
-        imwrite(file_name_,resized);
+         // Detect Light text on Dark background or Dark text on light background
+         bool text_conf = isBlackTextOnWhite(roi_grey);
+
         //Binarise the image
         Mat thresholded;
         GaussianBlur(roi_grey,roi_grey, Size(3,3), 0,0);
         cv::threshold(roi_grey,thresholded, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+        if (!text_conf)//Inverse the image if the text is in white
+            thresholded = 255 - thresholded;
+
         wchar_t *path = new wchar_t[100];
         swprintf(path,100, L"Debug_images/zone%d_%d_thresh.jpg", stime ,i);
         sprintf(file_name_, "Debug_images/zone%d_%d_thresh.jpg", stime ,i);
@@ -251,16 +232,20 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
         textZonesPaths.push_back(path);
     }
 
-    // Return the paths to the detected zones
-     for (int i=0; i<(int)nm_boxes.size(); i++)
+
+     /*Text Recognition (OCR)*/
+    double t_r = (double)getTickCount();
+    Ptr<OCRTesseract> ocr = OCRTesseract::create();
+    cout << "TIME_OCR_INITIALIZATION = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
+    for (int i=0; i<(int)nm_boxes.size(); i++)
     {
-        std::wcout << textZonesPaths[i] << endl;
         wchar_t* res = executeTask(textZonesPaths[i]);
-        std::wcout<< res <<std::endl;
+        wstring ws(res);
+        string output(ws.begin(), ws.end());
+        cout<< output <<endl;
     }
-    textZones[nm_boxes.size()]= (char *) malloc(100);
-        strcpy(textZones[nm_boxes.size()], "end");
-        return textZones;
+
+
     if(0)
     {
         /*Text Recognition (OCR)*/
@@ -301,7 +286,7 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
             group_img(nm_boxes[i]).copyTo(group_img);
             copyMakeBorder(group_img,group_img,15,15,15,15,BORDER_CONSTANT,Scalar(0));
             sprintf(file_name, "Merge/group_img%d.jpg", i);
-            imwrite(file_name,group_img );
+            imwrite(file_name, group_img );
             sprintf(file_name, "group_segmentation%d.jpg", i);
             imwrite(file_name,group_segmentation );
             vector<Rect>   boxes;
@@ -362,7 +347,58 @@ extern "C"  char**  text_recognition(unsigned char* img, int rows, int cols, int
 
 }
 
+bool isBlackTextOnWhite(Mat textZone){
 
+    bool conf = false;
+    float Ratio = 1.0;
+    int dark=0;
+    int light=0;
+    int total_number=textZone.rows * textZone.cols;
+    // Initialize parameters
+    int histSize = 256; //bin size
+    float range[] = { 0, 255 };
+    const float *ranges[] = { range };
+
+    // Calculate histogram
+    MatND hist;
+    calcHist( &textZone, 1, 0, Mat(), hist, 1, &histSize, ranges, true, false );
+    //threshold the image to 125
+    Mat binary_textZone;
+    threshold(textZone, binary_textZone, 127, 255, THRESH_BINARY);
+    light = countNonZero(binary_textZone);
+    dark = total_number - light;
+
+    Ratio = (float)dark/light;
+    if (Ratio < 1)
+        conf = true;
+
+    cout<< "Light " << light << "  And Dark "<< dark << " Ratio = "<< (float)dark/light<< endl;
+    if (0)
+    {
+        // Plot the histogram
+        int hist_w = 512; int hist_h = 400;
+        int bin_w = cvRound( (double) hist_w/histSize );
+
+        Mat histImage( hist_h, hist_w, CV_8UC1, Scalar( 0,0,0) );
+        normalize(hist, hist, 0, histImage.rows, NORM_MINMAX, -1, Mat() );
+
+        for( int i = 1; i < histSize; i++ )
+        {
+          line( histImage, Point( bin_w*(i-1), hist_h - cvRound(hist.at<float>(i-1)) ) ,
+                           Point( bin_w*(i), hist_h - cvRound(hist.at<float>(i)) ),
+                           Scalar( 255, 0, 0), 2, 8, 0  );
+        }
+
+        namedWindow( "Gray", 1 );       imshow( "Gray", textZone );
+        namedWindow( "Result", 1 );    imshow( "Result", histImage );
+        namedWindow( "Binary", 1 );    imshow( "Binary", binary_textZone);
+        waitKey(0);
+
+    }
+
+    return conf;
+
+}
 
 extern "C"  int   text_recognition_(Mat image, int RecEval, vector<string> words_gt, int num_gt_characters  )
 {

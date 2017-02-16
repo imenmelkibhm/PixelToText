@@ -4,6 +4,7 @@ from ctypes import *
 from itertools import takewhile
 
 # Load the dll
+
 ocrdll = cdll.LoadLibrary("./libocr.so")
 ocrdll.executeTask.restype = c_wchar_p
 ocrdll.executeTask.argtypes = [c_wchar_p]

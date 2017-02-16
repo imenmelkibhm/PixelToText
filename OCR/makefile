@@ -38,7 +38,7 @@ rebuild:
 	@$(MAKE)  --no-print-directory clean
 	@$(MAKE)  --no-print-directory all
 
-# Generate executable from object files
+# Generate .so from object files
 $(TargetPath): $(ObjFiles)
 	$(CXX) -shared -Wl,-soname,libocr.so $(CXXFLAGS) -o libocr.so $^ $(LDFLAGS)
 
@@ -49,3 +49,6 @@ $(TargetPath): $(ObjFiles)
 clean:
 	rm -f $(TargetPath) *.o *core *.so
 
+# Generate executable from object files
+ocr: $(ObjFiles)
+	$(CXX) $(CXXFLAGS) -o ocr.exe $^ $(LDFLAGS)
