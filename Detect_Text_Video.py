@@ -7,12 +7,14 @@ import cv2
 import argparse
 import time
 import sys
+import operator
+import math
 from Detect_Text_Image import text_detect_image, text_recognition
 import subprocess
 from multiprocessing import Pool, cpu_count
 from ChannelLogoDetection import Detect_Logo_Chanel_Frame
 import ConfigParser
-
+import pylab as pl
 
 
 def readconfig(args):
@@ -193,12 +195,52 @@ def text_detect_video(args):
 
     #loop on the dumped frames
     logging.error(' Output length %d:',len(output) )
+    frame_pre = None
+    histo_array = []
+    err_array = []
+    frames = []
+    desc = []
     for i in xrange(0,len(output),1):
          #if output[i, 0] > 0:
             im = cv2.imread(args.dumprepo + "/frame-%d.png" %(i+1))
             if mask is not None:
                 im = cv2.bitwise_and(im, im, mask = mask)
             # Check for changes with the previous frame
+            flag = 0
+            if frame_pre is not None:
+                #compare histgram of the lower center part of the image
+                f1 = cv2.cvtColor(frame_pre, cv2.COLOR_BGR2GRAY)
+                f2 = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+
+                hsv1 = cv2.cvtColor(frame_pre, cv2.COLOR_BGR2HSV)
+                hsv2 = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
+
+                h1 = cv2.calcHist([hsv1], [0], None, [16], [0, 256])
+                h2 = cv2.calcHist([hsv2], [0], None, [16], [0, 256])
+
+                sim = math.sqrt(reduce(operator.add, list(map(lambda a, b: (a - b) ** 2, h1, h2))) / len(h1))
+                err = np.sum(np.sqrt((frame_pre.astype("float") - im.astype("float")) ** 2))
+                err /= float(im.shape[0] * im.shape[1])
+
+                #compare akaze features descriptor
+                extractor = cv2.AKAZE_create()
+                kp2, desc2 = extractor.detectAndCompute(f2, None)
+                kp1, desc1 = extractor.detectAndCompute(f1, None)
+                logging.info('sim ('+str((i-int(np.round(fps / fintv))) / fps)+', '+str(i / fps)+')='+str(sim))
+                if desc1 is not None and desc2 is not None:
+                    logging.info('desc1:'+str(desc1.shape[0]) + ' desc2:'+str(desc2.shape[0]))
+                if desc1 is not None and desc2 is not None and sim < 500 and np.abs(desc1.shape[0] - desc2.shape[0]) <= 30:
+                    flag = 1
+                    frame_darker = (im*0.5).astype(np.uint8)
+                    cv2.imwrite("Flagged/image%04i.jpg" %i, frame_darker)
+                else:
+                    cv2.imwrite("Flagged/image%04i.jpg" %i, im)
+
+            frame_pre = im
+            if flag == 1:
+                logging.info('skip the duplicated frame: {0} of video {1}'.format(i*int(np.round(fps/fintv)), args.input))
+                continue
+            logging.info('ocr frame: {0} of video {1}'.format(i*int(np.round(fps/fintv)), args.input))
             arg_pool.append([im,Debug,i*int(np.round(fps/fintv))])
 
     #run multiple processing

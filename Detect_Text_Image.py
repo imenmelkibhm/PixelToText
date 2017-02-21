@@ -4,21 +4,120 @@ import sys
 import os
 import argparse
 import numpy as np
+import re
 import cv2
 import time
 import logging
 from ctypes import *
 from PIL import Image, ImageEnhance
 from itertools import takewhile
-
+import xml.etree.cElementTree as ET
 
 #Define logging level
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def er_draw():
-    return 0
+# create XML file from text by xml.etree.cElementTree
+def xml_create_unit(text_block, duration, stime, keywords, filename):
+    hits = ET.Element("HITLIST")
+
+    for i, text in enumerate(text_block):
+
+        tb = (' ').join(ks for ks in text).strip()
+
+        wordsli = re.split('[ )(":.\[\];/,\n]', tb) # split sentence into words
+        if '' in wordsli:
+            wordsli.remove('')
+        begrec_all=[]
+        wordrec_all=[]
+        temprec_all=[]
+        lenrec_all=[]
+        # match with keywords from file
+        for wordnum in xrange(len(wordsli),0,-1):
+            for indword in xrange(len(wordsli)-wordnum+1): # check multiple words unit in a line
+                word =u''
+                for s in xrange(wordnum):
+                    word += (u' ' + wordsli[indword+s])
+                word_without_acc = unicodedata.normalize('NFKD', word.strip()).encode('ASCII','ignore') # convert characters with French accent to normal English chracters
+                word=word.strip().encode('utf8')
+                flag2=0
+                # French accent matching
+                if (word.lower() in keywords)>0:#np.sum([find_substring(word.lower(), s) for s in keywords]) > 0:# French words matching
+                    pla = np.where(keywords==word.lower())[0]
+                    temprec_all = temprec_all + pla.tolist()
+                    begrec_all = begrec_all+ [indword]*len(pla)
+                    wordrec_all = wordrec_all+ [word]*len(pla)
+                    lenrec_all = lenrec_all + [wordnum]*len(pla)
+                    flag2=1
+                # matching without accent
+                if flag2==0 and (word_without_acc.lower() in keywords)>0:#np.sum([find_substring(word.lower(), s) for s in keywords]) > 0:# converted English words matching
+                    pla = np.where(keywords==word_without_acc.lower())[0]
+                    temprec_all = temprec_all + pla.tolist()
+                    begrec_all = begrec_all+ [indword]*len(pla)
+                    wordrec_all = wordrec_all+ [word]*len(pla)
+                    lenrec_all = lenrec_all + [wordnum]*len(pla)
+
+        # save to xml structure
+        if len(temprec_all)==0:#if no matched keywords with Keywords list
+            hit = ET.SubElement(hits,"HIT")# {0}".format(count))
+            ET.SubElement(hit, "frame", stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0} second".format(stime[i])
+            for indw, word in enumerate(wordsli):
+                if word=='':
+                        continue
+                word=word.strip()
+                ET.SubElement(hit, "Word", stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0}".format(word)
+        else: # if there is matched words to keywords
+            count=1
+            while len(temprec_all) > 0:# multiple matched words or word segments
+                flag = 1
+                wordrec = wordrec_all.pop()
+                temprec = temprec_all.pop()
+                begrec = begrec_all.pop()
+                lenrec = lenrec_all.pop()
+
+                hit = ET.SubElement(hits,"HIT", DUP="{0}".format(count))
+                ET.SubElement(hit, "frame", stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0} second".format(stime[i])
+                for indw, word in enumerate(wordsli):# if there is multiple mathced keywords in a frame, output for multiple times
+                    if word=='':
+                        continue
+                    word=word.strip()
+
+                    if indw==begrec and flag == 1:#np.sum([find_substring(word.lower(), s) for s in keywords]) > 0:#
+                        ET.SubElement(hit, "Word", keyword="{0}".format(wordrec),  classement="{0}".format(keywords[temprec,1]), nature="{0}".format(keywords[temprec,0]), stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0}".format(wordrec)
+                        flag=2
+                    elif flag==2 and begrec+lenrec>indw>begrec :
+                        pass
+                    else:
+                        ET.SubElement(hit, "Word", stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0}".format(word)
+
+                count +=1
+    tree = ET.ElementTree(hits)
+    tree.write(filename, xml_declaration=True, encoding='UTF-8')
+
+
+# create XML file from text by xml.etree.cElementTree
+def xml_create(text_block, duration, stime,  filename):
+    hits = ET.Element("HITLIST")
+
+    for i, text in enumerate(text_block):
+        tb = (' ').join(ks for ks in text).strip()
+
+        wordsli = re.split('[ )(":.\[\];/,\n]', tb) # split sentence into words
+        if '' in wordsli:
+            wordsli.remove('')
+
+        # save to xml structure
+        hit = ET.SubElement(hits,"HIT")# {0}".format(count))
+        ET.SubElement(hit, "frame", stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0} second".format(stime[i])
+        for indw, word in enumerate(wordsli):
+            if word=='':
+                    continue
+            word=word.strip()
+            ET.SubElement(hit, "Word", stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0}".format(word)
+
+    tree = ET.ElementTree(hits)
+    tree.write(filename, xml_declaration=True, encoding='UTF-8')
 
 
 def text_recognition(img, Debug,i):
@@ -41,8 +140,9 @@ def text_recognition(img, Debug,i):
 
     # Load the dll
     mydll = cdll.LoadLibrary("TextMSER/libText.so")
-    #mydll.text_recognition.restype = POINTER(c_char_p)
-    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,0)
+    mydll.text_recognition.restype = c_char_p
+    res = mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,0)
+    print res
     #for s in takewhile(lambda x: x is not "end",res):
         #print s
 

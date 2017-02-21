@@ -38,10 +38,9 @@ bool  isBlackTextOnWhite(Mat textZone);
 
 
 /*Text Regions Detection*/
-extern "C"  void text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug, int MULTI_CHANNEL)
+extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug, int MULTI_CHANNEL)
 {
 
- cout<< "Debug value :"<<Debug << endl;
     if (Debug)
     {
         boost::filesystem::path dir("Debug_images");
@@ -235,7 +234,7 @@ extern "C"  void text_recognition(unsigned char* img, int rows, int cols, int st
 
      /*Text Recognition (OCR)*/
     double t_r = (double)getTickCount();
-    Ptr<OCRTesseract> ocr = OCRTesseract::create();
+    vector<string> detected_txt;
     cout << "TIME_OCR_INITIALIZATION = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
     for (int i=0; i<(int)nm_boxes.size(); i++)
     {
@@ -243,8 +242,9 @@ extern "C"  void text_recognition(unsigned char* img, int rows, int cols, int st
         wstring ws(res);
         string output(ws.begin(), ws.end());
         cout<< output <<endl;
+        detected_txt.push_back(output);
     }
-
+    return detected_txt;
 
     if(0)
     {
