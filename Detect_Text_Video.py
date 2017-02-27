@@ -14,8 +14,10 @@ import subprocess
 from multiprocessing import Pool, cpu_count
 from ChannelLogoDetection import Detect_Logo_Chanel_Frame
 import ConfigParser
+import glob
 import pylab as pl
-
+import shutil
+import xml.etree.cElementTree as ET
 
 def readconfig(args):
     found = False
@@ -56,13 +58,24 @@ def readconfig(args):
                 args.text_zone = text_zone
 
 
+def removeFolders(args):
+
+    dumpRepo = os.path.join(args.outputpath,'Dump_'+args.outputname)
+    if os.path.exists(dumpRepo):
+        subprocess.call('rm -rf '+ dumpRepo, shell=True)
+        logging.info('Removing video dump folder!!')
+
+    tempRepo = os.path.join(args.outputpath,'temp_'+args.outputname)
+    if not args.debug:
+        shutil.rmtree(tempRepo)
+
 def dump_video(args):
 
     #Create the dump repo
-    dumpRepo = args.dumprepo
+    dumpRepo = os.path.join(args.outputpath,'Dump_'+args.outputname)
     if dumpRepo != '' and not os.path.exists(dumpRepo):
         os.makedirs(dumpRepo)
-        logging.info('Create the dump folder!!')
+        logging.info('Create the video dump folder!!')
     #If the repo already exists
     else:
         if os.path.exists(dumpRepo):
@@ -72,16 +85,17 @@ def dump_video(args):
 
     subprocess.call('ffmpeg -i ' + args.input + ' -vf fps=' + args.frequency + ' ' + dumpRepo + '/frame-%d.png' + ' -threads 0', shell=True) #faster use jpg but lower image quality
     #subprocess.call('ffmpeg -i ' + args.input + ' -r ' + args.frequency + ' -f image2 ' + dumpRepo + '/frame-%d.jpg'  + ' -threads 0', shell=True)
-
+    return dumpRepo
 
 #Multiprocessing text detection version
 def text_detect_image_parallel(arg):
     im=arg[0]
     Debug=arg[1]
-    stime=arg[2]
+    debugPath=arg[2]
+    stime=arg[3]
 
     try:
-        text_recognition(im, Debug,stime)
+        text_recognition(im, Debug, debugPath, stime)
         logging.info('End Text_recognition for frame {0}'.format(stime))
         return
     except OSError as e:
@@ -128,6 +142,30 @@ def Detect_Logo_Chanel_parallel(arg):
         logging.warning('ignore time frame: {0}'.format(i))
         return
 
+# create XML file from text by xml.etree.cElementTree
+def xml_create(text_block, duration, stime, filename):
+    hits = ET.Element("HITLIST")
+
+    for i, text in enumerate(text_block):
+        tb = (' ').join(ks for ks in text).strip()
+
+        wordsli = re.split('[ )(":.\[\];/,\n]', tb)  # split sentence into words
+        if '' in wordsli:
+            wordsli.remove('')
+
+        # save to xml structure
+        hit = ET.SubElement(hits, "HIT")  # {0}".format(count))
+        ET.SubElement(hit, "frame", stime="{0}".format(stime[i]),
+                      dur="{0}".format(duration[i])).text = "{0} second".format(stime[i])
+        for indw, word in enumerate(wordsli):
+            if word == '':
+                continue
+            word = word.strip()
+            ET.SubElement(hit, "Word", stime="{0}".format(stime[i]),
+                          dur="{0}".format(duration[i])).text = "{0}".format(word)
+
+    tree = ET.ElementTree(hits)
+    tree.write(filename, xml_declaration=True, encoding='UTF-8')
 
 
 #Text detection in video using multiprocessing
@@ -141,16 +179,21 @@ def text_detect_video(args):
     frn = int(cap.get(7))  # frame number
     maxframe = int(fintv*frn/fps)
 
+    if not os.path.exists(args.outputpath):
+        os.mkdir(args.outputpath)
+    debugPath=os.path.join(args.outputpath,'temp_'+args.outputname)
+    if not os.path.exists(debugPath):
+        os.mkdir(debugPath)
+
     #Multiprocessing
     pool1=Pool(processes=6)
     pool2=Pool(processes=6)
     arg_pool_logo = []
     arg_pool = []
-    results = []
 
     #1- Dump the video frames on the disk
     logging.info('(1). Dump the video frames on the disk')
-    dump_video(args)
+    dumpRepo = dump_video(args)
     end_dump = time.time()
     logging.info('(1). Job finished in %f' % (end_dump-start))
 
@@ -166,7 +209,7 @@ def text_detect_video(args):
         path = args.logo_path
         #loop on the dumped frames
         for i in xrange(0,maxframe+1,1):
-            arg_pool_logo.append([args.dumprepo,path, i, x1, y1, x2, y2])
+            arg_pool_logo.append([dumpRepo,path, i, x1, y1, x2, y2])
 
         #run multiple processing
         results = pool1.map(Detect_Logo_Chanel_parallel, arg_pool_logo)
@@ -194,15 +237,10 @@ def text_detect_video(args):
         ret, mask = cv2.threshold(mask, 10, 255, cv2.THRESH_BINARY)
 
     #loop on the dumped frames
-    logging.error(' Output length %d:',len(output) )
     frame_pre = None
-    histo_array = []
-    err_array = []
-    frames = []
-    desc = []
     for i in xrange(0,len(output),1):
          #if output[i, 0] > 0:
-            im = cv2.imread(args.dumprepo + "/frame-%d.png" %(i+1))
+            im = cv2.imread(dumpRepo + "/frame-%d.png" %(i+1))
             if mask is not None:
                 im = cv2.bitwise_and(im, im, mask = mask)
             # Check for changes with the previous frame
@@ -226,22 +264,16 @@ def text_detect_video(args):
                 extractor = cv2.AKAZE_create()
                 kp2, desc2 = extractor.detectAndCompute(f2, None)
                 kp1, desc1 = extractor.detectAndCompute(f1, None)
-                logging.info('sim ('+str((i-int(np.round(fps / fintv))) / fps)+', '+str(i / fps)+')='+str(sim))
-                if desc1 is not None and desc2 is not None:
-                    logging.info('desc1:'+str(desc1.shape[0]) + ' desc2:'+str(desc2.shape[0]))
+                #logging.info('sim ('+str((i-int(np.round(fps / fintv))) / fps)+', '+str(i / fps)+')='+str(sim))
                 if desc1 is not None and desc2 is not None and sim < 500 and np.abs(desc1.shape[0] - desc2.shape[0]) <= 30:
                     flag = 1
-                    frame_darker = (im*0.5).astype(np.uint8)
-                    cv2.imwrite("Flagged/image%04i.jpg" %i, frame_darker)
-                else:
-                    cv2.imwrite("Flagged/image%04i.jpg" %i, im)
 
             frame_pre = im
             if flag == 1:
-                logging.info('skip the duplicated frame: {0} of video {1}'.format(i*int(np.round(fps/fintv)), args.input))
+                logging.debug('skip the duplicated frame: {0} of video {1}'.format(i*int(np.round(fps/fintv)), args.input))
                 continue
-            logging.info('ocr frame: {0} of video {1}'.format(i*int(np.round(fps/fintv)), args.input))
-            arg_pool.append([im,Debug,i*int(np.round(fps/fintv))])
+            logging.debug('ocr frame: {0} of video {1}'.format(i*int(np.round(fps/fintv)), args.input))
+            arg_pool.append([im,Debug, debugPath, i*int(np.round(fps/fintv))])
 
     #run multiple processing
     pool2.imap(text_detect_image_parallel, arg_pool)
@@ -249,16 +281,41 @@ def text_detect_video(args):
     pool2.join()
     pool2.terminate()
 
+    #Load detected text from text files
+    output=[]
+    file_dir_extension=os.path.join(debugPath, 'OCR_results/*.txt')
+    ocr_results_files= glob.glob(file_dir_extension)
+    for file in ocr_results_files:
+        stime= os.path.splitext(os.path.basename(file))[0]
+        file_= open(file,'r')
+        detxt= file_.read()
+        output.append([stime,detxt])
+
+    # prepare for XML
+    logging.info('creating XML for video: {0}'.format(args.input))
+    timestart = time.time()
+
+    bannertext_block_all = output[:, 0]
+    stime_all = output[:, 1]
+    nind = np.argsort(stime_all)
+    stime_all = stime_all[nind]
+    bannertext_block_all = bannertext_block_all[nind]
+    duration_all = np.append(stime_all[1:], np.floor(int(frn/fps))) - stime_all  # [1.0/fintv]*len(stime_all)
+    # create xml file
+    xml_create(bannertext_block_all, duration_all, stime_all, os.path.join(args.outputpath, os.path.basename(args.input) + '.xml'))
+    timeend = time.time()
+    logging.info("xml generation finised in " + str(timeend - timestart))
+
     logging.error('(3). Job finished in ')
     end_text = time.time()
     logging.error('(3). Job finished in %f' % (end_text-end_logo))
 
-    #Remove the dumped frames
-    if os.path.exists(args.dumprepo):
-        subprocess.call('rm -rf '+ args.dumprepo, shell=True)
-        print 'removing dump folder!!'
+    #Remove the Debug and Dump folders
+    removeFolders(args)
 
     return 0
+
+
 
 
 
@@ -268,7 +325,8 @@ def main():
     parser.add_argument("-i", "--input", help="input video file")
     parser.add_argument("-id", "--id", help="id support")
     parser.add_argument("-f", "--frequency", default=1.0, help="the frequency of extracting and processing video frames")
-    parser.add_argument("-dr", "--dumprepo", help="the temporary folder used to dump the video images")
+    parser.add_argument("-o", "--outputpath", help="the path to save output xml file")
+    parser.add_argument("-n", "--outputname", help="the new file name to output")
     parser.add_argument("-lz", "--logo_zone", type=str, default='', help="zones in which we check channel logo: x1,y1,x2,y2 ")
     parser.add_argument("-l", "--logo_path", type=str, default='', help="the channel logo path")
     parser.add_argument("-tz", "--text_zone", type=str, default='', help="The text zone")
@@ -278,6 +336,8 @@ def main():
 
     args = parser.parse_args()
     readconfig(args)
+
+
     starttime = time.time()
 
     text_detect_video(args)

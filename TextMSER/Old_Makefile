@@ -1,0 +1,23 @@
+CXX=g++
+CXXFLAGS= -fPIC -ggdb `pkg-config --cflags  opencv` -L/opt/exe/PixelToText/OC
+LDFLAGS= -shared
+
+LIBS= -locr -lboost_system -lboost_filesystem `pkg-config  --libs opencv`
+LDFLAGS += $(LIBS)
+
+TRAGET=libText.so
+SOURCES= text_recongnition.cpp
+OBJECTS= $(SOURCES:.cpp=.o)
+
+all: $(TARGET)
+	@echo Done
+
+$(TARGET) : $(OBJECTS)	
+	$(CXX)  -Wl,-soname,$(TARGET) $(CXXFLAGS) $(OBJECTS) -o $^ $(LDFLAGS)
+
+# Generate object files from .cpp files
+%.o : %.cpp
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
+
+clean:
+	rm -f $(OBJECTS) $(TARGET)

@@ -18,6 +18,7 @@
 #include <boost/filesystem.hpp>
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -36,18 +37,36 @@ bool   sort_by_lenght(const string &a, const string &b);
 void   er_draw(vector<Mat> &channels, vector<vector<ERStat> > &regions, vector<Vec2i> group, Mat& segmentation);
 bool  isBlackTextOnWhite(Mat textZone);
 
+string make_filename( const char* base_dir, const string& sub_dir, int index, const string& ext )
+{
+  ostringstream result;
+  ostringstream result_folder;
+
+  std::string path(base_dir);
+  result_folder << path << "/" << sub_dir;
+  boost::filesystem::path dir(result_folder.str());
+  if (!(boost::filesystem::exists(dir)))
+        {
+            cout<< "Output OCR Foldernot found..."<<endl;
+            cout<< "Creating the output folder.."<< result_folder.str() <<endl;
+            boost::filesystem::create_directory(dir);
+        }
+  result << path << "/" << sub_dir << "/" <<index << ext;
+  return result.str();
+}
 
 /*Text Regions Detection*/
-extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug, int MULTI_CHANNEL)
+extern "C"  int text_recognition(unsigned char* img, int rows, int cols, int stime, int Debug, const char *debugPath, int MULTI_CHANNEL)
 {
 
     if (Debug)
     {
-        boost::filesystem::path dir("Debug_images");
+        std::string str(debugPath);
+        boost::filesystem::path dir(str);
         if (!(boost::filesystem::exists(dir)))
         {
-            cout<< "Debug_images folder not found..."<<endl;
-            cout<< "Creating the debug folder.."<<endl;
+            cout<< "Debug folder not found..."<<endl;
+            cout<< "Creating the debug folder.."<< str <<endl;
             boost::filesystem::create_directory(dir);
         }
     }
@@ -58,7 +77,7 @@ extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int co
     if (Debug)
     {
         char file_name[100];
-        sprintf(file_name, "Debug_images/image_orig%d.jpg", stime);
+        sprintf(file_name, "%s/image_orig%d.jpg", debugPath, stime);
         imwrite(file_name, image);
     }
 
@@ -110,7 +129,7 @@ extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int co
     if (Debug)
     {
         char file_name_r[100];
-        sprintf(file_name_r, "Debug_images/out_img_decomposition%d.jpg", stime);
+        sprintf(file_name_r, "%s/out_img_decomposition%d.jpg", debugPath, stime);
         imwrite(file_name_r,out_img_decomposition);
     }
 
@@ -171,7 +190,7 @@ extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int co
             //char str[200];
             //sprintf(str,"%d %d ", nm_boxes[i].height, nm_boxes[i].width);
             //putText(rectangles, str, nm_boxes[i].tl(), FONT_HERSHEY_SIMPLEX, 0.8, cvScalar(100,50,50), 2, CV_AA );
-            sprintf(file_name_, "Debug_images/rectangles_%d.jpg",stime);
+            sprintf(file_name_, "%s/rectangles_%d.jpg",debugPath, stime);
             imwrite(file_name_,rectangles );
         }
     }
@@ -195,7 +214,7 @@ extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int co
         for (int i=0; i<(int)nm_boxes.size(); i++)
         {
             rectangle(rectangles, nm_boxes[i].tl(), nm_boxes[i].br(), Scalar(255,0,255), 2);
-            sprintf(file_name_, "Debug_images/rectangles_%d_filtered.jpg",stime);
+            sprintf(file_name_, "%s/rectangles_%d_filtered.jpg",debugPath, stime);
             imwrite(file_name_,rectangles );
         }
     }
@@ -204,10 +223,10 @@ extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int co
     // Post-processing of the text regions to extract the binary text images.
     for (int i=0; i<(int)nm_boxes.size(); i++)
     {
-        char file_name_[100];
         Mat roi = Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
         image(nm_boxes[i]).copyTo(roi);
-        sprintf(file_name_, "Debug_images/zone%d_%d.jpg",stime ,i);
+        char file_name_[100];
+        sprintf(file_name_, "%s/zone%d_%d.jpg",debugPath, stime ,i);
         imwrite(file_name_,roi);
         //Zoom
         Mat resized;
@@ -224,9 +243,12 @@ extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int co
         if (!text_conf)//Inverse the image if the text is in white
             thresholded = 255 - thresholded;
 
-        wchar_t *path = new wchar_t[100];
-        swprintf(path,100, L"Debug_images/zone%d_%d_thresh.jpg", stime ,i);
-        sprintf(file_name_, "Debug_images/zone%d_%d_thresh.jpg", stime ,i);
+        //erode to get more precise caracters
+        erode(thresholded, thresholded, Mat(), Point(-1, -1), 2, 1, 1);
+
+        wchar_t *path = new wchar_t[256];
+        swprintf(path,100, L"%s/zone%d_%d_thresh.jpg", debugPath, stime ,i);
+        sprintf(file_name_, "%s/zone%d_%d_thresh.jpg", debugPath, stime ,i);
         imwrite(file_name_,thresholded);
         textZonesPaths.push_back(path);
     }
@@ -241,109 +263,20 @@ extern "C"  vector<string> text_recognition(unsigned char* img, int rows, int co
         wchar_t* res = executeTask(textZonesPaths[i]);
         wstring ws(res);
         string output(ws.begin(), ws.end());
-        cout<< output <<endl;
         detected_txt.push_back(output);
     }
-    return detected_txt;
 
-    if(0)
+    //save the text into txt file to be used to create the final xml file
+    if (!detected_txt.empty())
     {
-        /*Text Recognition (OCR)*/
-        double t_r = (double)getTickCount();
-        Ptr<OCRTesseract> ocr = OCRTesseract::create();
-        cout << "TIME_OCR_INITIALIZATION = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
-        string output;
-        char file_name[100];
-
-        Mat out_img;
-        Mat out_img_detection;
-        Mat out_img_segmentation = Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
-        image.copyTo(out_img);
-        image.copyTo(out_img_detection);
-
-        float scale_img  = 600.f/image.rows;
-        float scale_font = (float)(2-scale_img)/1.4f;
-        vector<string> words_detection;
-        t_r = (double)getTickCount();
-
-
-
-        for (int i=0; i<(int)nm_boxes.size(); i++)
-        {
-
-            rectangle(out_img_detection, nm_boxes[i].tl(), nm_boxes[i].br(), Scalar(255,0,255), 2);
-
-
-            Mat group_img = Mat::zeros(image.rows+2, image.cols+2, CV_8UC1);
-            er_draw(channels, regions, nm_region_groups[i], group_img);
-            sprintf(file_name, "Merge/group_img_first%d.jpg", i);
-            imwrite(file_name,group_img);
-            Mat group_segmentation;
-            group_img.copyTo(group_segmentation);
-            char file_name[100];
-
-            //image(nm_boxes[i]).copyTo(group_img);
-            group_img(nm_boxes[i]).copyTo(group_img);
-            copyMakeBorder(group_img,group_img,15,15,15,15,BORDER_CONSTANT,Scalar(0));
-            sprintf(file_name, "Merge/group_img%d.jpg", i);
-            imwrite(file_name, group_img );
-            sprintf(file_name, "group_segmentation%d.jpg", i);
-            imwrite(file_name,group_segmentation );
-            vector<Rect>   boxes;
-            vector<string> words;
-            vector<float>  confidences;
-            ocr->run(group_img, output, &boxes, &words, &confidences, OCR_LEVEL_WORD);
-
-            output.erase(remove(output.begin(), output.end(), '\n'), output.end());
-            //cout << "OCR output = \"" << output << "\" lenght = " << output.size() << endl;
-            if (output.size() < 3)
-                continue;
-
-            for (int j=0; j<(int)boxes.size(); j++)
-            {
-                boxes[j].x += nm_boxes[i].x-15;
-                boxes[j].y += nm_boxes[i].y-15;
-
-                //cout << "  word = " << words[j] << "\t confidence = " << confidences[j] << endl;
-                if ((words[j].size() < 2) || (confidences[j] < 51) ||
-                        ((words[j].size()==2) && (words[j][0] == words[j][1])) ||
-                        ((words[j].size()< 4) && (confidences[j] < 60)) ||
-                        isRepetitive(words[j]))
-                    continue;
-                words_detection.push_back(words[j]);
-                rectangle(out_img, boxes[j].tl(), boxes[j].br(), Scalar(255,0,255),3);
-                Size word_size = getTextSize(words[j], FONT_HERSHEY_SIMPLEX, (double)scale_font, (int)(3*scale_font), NULL);
-                rectangle(out_img, boxes[j].tl()-Point(3,word_size.height+3), boxes[j].tl()+Point(word_size.width,0), Scalar(255,0,255),-1);
-                putText(out_img, words[j], boxes[j].tl()-Point(1,1), FONT_HERSHEY_SIMPLEX, scale_font, Scalar(255,255,255),(int)(3*scale_font));
-                out_img_segmentation = out_img_segmentation | group_segmentation;
-                sprintf(file_name, "out_img_segmentation%d.jpg", i);
-                imwrite(file_name, out_img_segmentation);
-            }
-
-        }
-
-        cout << "TIME_OCR = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
-
-        //resize(out_img_detection,out_img_detection,Size(image.cols*scale_img,image.rows*scale_img));
-        //imshow("detection", out_img_detection);
-        sprintf(file_name, "Debug_images/out_img_detection%d.jpg", stime);
-        imwrite(file_name, out_img_detection);
-        //resize(out_img,out_img,Size(image.cols*scale_img,image.rows*scale_img));
-        /*namedWindow("recognition",WINDOW_NORMAL);
-        imshow("recognition", out_img);
-        waitKey(0);
-        imwrite("recognition.jpg", out_img);
-        imwrite("segmentation.jpg", out_img_segmentation);
-        imwrite("decomposition.jpg", out_img_decomposition);*/
-        if (Debug)
-        {
-            char file_name_r[100];
-            sprintf(file_name_r, "Debug_images/recognition%d.jpg", stime);
-            imwrite(file_name_r, out_img);
-
-        }
-        cout<< "End of OCR for frame "<< stime <<endl;
+        std::ofstream output_file(make_filename( debugPath, "OCR_results",  stime, ".txt" ).c_str());
+        std::ostream_iterator<std::string> output_iterator(output_file, "\n");
+        std::copy(detected_txt.begin(), detected_txt.end(), output_iterator);
     }
+
+    return 1;
+
+
 
 }
 
@@ -372,9 +305,9 @@ bool isBlackTextOnWhite(Mat textZone){
     if (Ratio < 1)
         conf = true;
 
-    cout<< "Light " << light << "  And Dark "<< dark << " Ratio = "<< (float)dark/light<< endl;
     if (0)
     {
+        cout<< "Light " << light << "  And Dark "<< dark << " Ratio = "<< (float)dark/light<< endl;
         // Plot the histogram
         int hist_w = 512; int hist_h = 400;
         int bin_w = cvRound( (double) hist_w/histSize );
@@ -400,7 +333,7 @@ bool isBlackTextOnWhite(Mat textZone){
 
 }
 
-extern "C"  int   text_recognition_(Mat image, int RecEval, vector<string> words_gt, int num_gt_characters  )
+extern "C"  int   text_recognition_tesseract(Mat image, int RecEval, vector<string> words_gt, int num_gt_characters  )
 {
 
  /*Text Detection*/
@@ -452,10 +385,7 @@ extern "C"  int   text_recognition_(Mat image, int RecEval, vector<string> words
     erGrouping(image, channels, regions, nm_region_groups, nm_boxes,ERGROUPING_ORIENTATION_HORIZ);
     cout << "TIME_GROUPING = " << ((double)getTickCount() - t_g)*1000/getTickFrequency() << endl;
 
-
-
     /*Text Recognition (OCR)*/
-
     double t_r = (double)getTickCount();
     Ptr<OCRTesseract> ocr = OCRTesseract::create();
     cout << "TIME_OCR_INITIALIZATION = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
@@ -520,7 +450,6 @@ extern "C"  int   text_recognition_(Mat image, int RecEval, vector<string> words
     }
 
     cout << "TIME_OCR = " << ((double)getTickCount() - t_r)*1000/getTickFrequency() << endl;
-
 
     /* Recognition evaluation with (approximate) hungarian matching and edit distances */
 
@@ -697,45 +626,41 @@ bool   sort_by_lenght(const string &a, const string &b){return (a.size()>b.size(
 int main(int argc, char* argv[])
 {
 
-    wchar_t* res = executeTask(L"/opt/exe/PixelToText/Debug_BFMTV_20161018_02275507_02325507_SD/zone3425_0_thresh.jpg");
-
     cout << endl << argv[0] << endl << endl;
     cout << "A demo program of End-to-end Scene Text Detection and Recognition: " << endl;
     cout << "Shows the use of the Tesseract OCR API with the Extremal Region Filter algorithm described in:" << endl;
     cout << "Neumann L., Matas J.: Real-Time Scene Text Localization and Recognition, CVPR 2012" << endl << endl;
 
+    Mat image;
+    if(argc>1)
+    {
+        image  = imread(argv[1]);
+        cout << "IMG_W=" << image.cols << endl;
+        cout << "IMG_H=" << image.rows << endl;
+     }
+    else
+    {
+        cout << "    Usage: " << argv[0] << " <input_image> [<gt_word1> ... <gt_wordN>]" << endl;
+        return(0);
+    }
 
+    int num_gt_characters   = 0;
+    vector<string> words_gt;
+    if(argc>2)
+    {
 
-//    Mat image;
-//    if(argc>1)
-//    {
-//        image  = imread(argv[1]);
-//        cout << "IMG_W=" << image.cols << endl;
-//        cout << "IMG_H=" << image.rows << endl;
-//     }
-////    else
-////    {
-////        cout << "    Usage: " << argv[0] << " <input_image> [<gt_word1> ... <gt_wordN>]" << endl;
-////        return(0);
-////    }
-//
-//    int num_gt_characters   = 0;
-//    vector<string> words_gt;
-//    if(argc>2)
-//    {
-//
-//        for (int i=2; i<argc; i++)
-//        {
-//            string s = string(argv[i]);
-//            if (s.size() > 0)
-//            {
-//                words_gt.push_back(string(argv[i]));
-//                //cout << " GT word " << words_gt[words_gt.size()-1] << endl;
-//                num_gt_characters += (int)(words_gt[words_gt.size()-1].size());
-//            }
-//        }
-//    }
-//    text_recognition_(image, 0, words_gt, num_gt_characters );
-//    //text_recognition2(image);
+        for (int i=2; i<argc; i++)
+        {
+            string s = string(argv[i]);
+            if (s.size() > 0)
+            {
+                words_gt.push_back(string(argv[i]));
+                //cout << " GT word " << words_gt[words_gt.size()-1] << endl;
+                num_gt_characters += (int)(words_gt[words_gt.size()-1].size());
+            }
+        }
+    }
+    text_recognition_tesseract(image, 0, words_gt, num_gt_characters );
+    //text_recognition2(image);
     return 0;
 }

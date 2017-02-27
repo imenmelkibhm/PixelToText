@@ -14,7 +14,7 @@ from itertools import takewhile
 import xml.etree.cElementTree as ET
 
 #Define logging level
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -96,31 +96,7 @@ def xml_create_unit(text_block, duration, stime, keywords, filename):
     tree.write(filename, xml_declaration=True, encoding='UTF-8')
 
 
-# create XML file from text by xml.etree.cElementTree
-def xml_create(text_block, duration, stime,  filename):
-    hits = ET.Element("HITLIST")
-
-    for i, text in enumerate(text_block):
-        tb = (' ').join(ks for ks in text).strip()
-
-        wordsli = re.split('[ )(":.\[\];/,\n]', tb) # split sentence into words
-        if '' in wordsli:
-            wordsli.remove('')
-
-        # save to xml structure
-        hit = ET.SubElement(hits,"HIT")# {0}".format(count))
-        ET.SubElement(hit, "frame", stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0} second".format(stime[i])
-        for indw, word in enumerate(wordsli):
-            if word=='':
-                    continue
-            word=word.strip()
-            ET.SubElement(hit, "Word", stime="{0}".format(stime[i]), dur="{0}".format(duration[i])).text = "{0}".format(word)
-
-    tree = ET.ElementTree(hits)
-    tree.write(filename, xml_declaration=True, encoding='UTF-8')
-
-
-def text_recognition(img, Debug,i):
+def text_recognition(img, Debug, debugPath,i):
     #Preprocessing to enhance text structure in the image
     #Image enhancement using PIL
     image = Image.fromarray(img)
@@ -140,11 +116,9 @@ def text_recognition(img, Debug,i):
 
     # Load the dll
     mydll = cdll.LoadLibrary("TextMSER/libText.so")
-    mydll.text_recognition.restype = c_char_p
-    res = mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug,0)
-    print res
-    #for s in takewhile(lambda x: x is not "end",res):
-        #print s
+    #mydll.text_recognition.restype = c_char_p
+    mydll.text_recognition(img.ctypes.data_as(POINTER(c_ubyte)), rows, cols,i, Debug, debugPath, 0)
+
 
 def text_detect_image(img, Debug):
 

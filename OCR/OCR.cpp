@@ -55,8 +55,34 @@ BSTR processImage(CBstr imagePath)
 	displayMessage( L"Recognizing..." );
 	CheckResult( frDocument->Process() );
 
-    //CFileWriter *fileWriter =
-    //CheckResult( frDocument->ExportToMemory(fileWriter, FEF_RTF, 0));
+    BSTR text;
+    CSafePtr<IFRPages> frPages = 0;
+    int count = 0;
+    frDocument->get_Pages(frPages.GetBuffer());
+    frPages->get_Count(&count);
+    for(int i = 0; i< count; i++)
+    {
+        displayMessage( L"getting pages..." );
+        CSafePtr<IFRPage> frPage = 0;
+        frPages->get_Element(i, &frPage);
+        CSafePtr<IPlainText> plainText = 0;
+        frPage->get_PlainText(&plainText);
+        plainText->get_Text(&text);
+    }
+    //Return Results
+	return text;
+}
+
+BSTR processImageSaveResult(CBstr imagePath)
+{
+	// Create document from image file
+	displayMessage( L"Loading image..." );
+	CSafePtr<IFRDocument> frDocument = 0;
+	CheckResult( FREngine->CreateFRDocumentFromImage( imagePath, 0, frDocument.GetBuffer() ) );
+
+	// Recognize document
+	displayMessage( L"Recognizing..." );
+	CheckResult( frDocument->Process() );
 
     BSTR text;
     CSafePtr<IFRPages> frPages = 0;
@@ -70,15 +96,9 @@ BSTR processImage(CBstr imagePath)
         frPages->get_Element(i, &frPage);
         CSafePtr<IPlainText> plainText = 0;
         frPage->get_PlainText(&plainText);
-
         plainText->get_Text(&text);
-        std::wcout<< "Detected text: "<< text << std::endl;
-        displayMessage(text);
-        //CSafePtr<ILayout> layout = 0;
-        //CSafePtr<ILayoutBlocks> layoutBlocks = 0;
-        //layout->get_Blocks(layoutBlocks.GetBuffer());
-
     }
+
 	// Save results
 	displayMessage( L"Saving results..." );
 	CBstr exportPath = Concatenate( GetSamplesFolder(), L"/SampleImages/Demo.rtf" );
